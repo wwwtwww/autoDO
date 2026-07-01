@@ -19,14 +19,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 初始化 Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.4 > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
-
-      - name: 赋予 Gradle 执行权限
-        run: chmod +x gradlew
+      - name: 配置兼容的 Gradle 版本 (8.4)
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
 
       - name: 编译 APK 并保存日志
-        run: ./gradlew assembleDebug --stacktrace --info >> build_log.txt 2>&1 || (cat build_log.txt && exit 1)
+        run: gradle assembleDebug --stacktrace --info > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
 
       - name: 上传打包好的 APK
         uses: actions/upload-artifact@v4
