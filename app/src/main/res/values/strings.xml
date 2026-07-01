@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">LarkAutoClock</string>
+    <string name="accessibility_service_description">飞书自动打卡助手无障碍服务，用于定时亮屏后自动执行飞书的上班/下班打卡操作。</string>
+</resources>
