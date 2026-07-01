@@ -11,106 +11,135 @@ import com.lark.autoclock.utils.UnlockHelper
 
 class AutoClockAccessibilityService : AccessibilityService() {
 
+    /**
+     * 简化后的状态机：
+     * IDLE         -> 空闲，不响应任何事件
+     * FIND_CLOCK   -> 进入假勤页面后，寻找"打卡"入口
+     * FIND_BUTTON  -> 进入打卡页面后，寻找"上班打卡"或"下班打卡"按钮
+     * DONE         -> 打卡完成，等待回到桌面
+     */
     enum class ClockState {
-        IDLE, FIND_WORKBENCH, FIND_CLOCK_APP, FIND_CLOCK_BUTTON, DONE
+        IDLE, FIND_CLOCK, FIND_BUTTON, DONE
     }
 
     private var currentState = ClockState.IDLE
     private val handler = Handler(Looper.getMainLooper())
-    private val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
+    private var retryCount = 0
+    private val MAX_RETRY = 30 // 最多重试 30 次（约 30 秒）
+
+    companion object {
+        // 飞书的包名
+        const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            "ACTION_TEST_UNLOCK" -> {
-                val chainAction = intent.getStringExtra("CHAIN_ACTION")
-                Log.d("AutoClock", "收到解锁指令，是否存在链式后续动作：$chainAction")
-                
-                if (UnlockHelper.isDeviceLocked(this)) {
-                    Log.d("AutoClock", "设备已锁定，执行滑动解锁...")
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        UnlockHelper.swipeToUnlock(this)
-                        
-                        // 若存在链式动作（例如真实打卡任务），延迟 2.5 秒后唤起飞书，给足桌面解锁动画的时间
-                        if (chainAction == "ACTION_START_CLOCK_IN") {
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                currentState = ClockState.FIND_WORKBENCH
-                                launchFeishu()
-                            }, 2500)
-                        }
-                    }, 1000)
-                } else {
-                    Log.d("AutoClock", "设备未锁定，直接执行链式动作")
-                    if (chainAction == "ACTION_START_CLOCK_IN") {
-                        currentState = ClockState.FIND_WORKBENCH
-                        launchFeishu()
-                    }
-                }
-            }
             "ACTION_START_CLOCK_IN" -> {
-                // （备用兼容）用于单独调试打开飞书功能
-                Log.d("AutoClock", "独立触发飞书启动流程")
-                currentState = ClockState.FIND_WORKBENCH
-                launchFeishu()
+                Log.d("AutoClock", "=== 收到打卡指令，启动桌面假勤快捷方式 ===")
+                retryCount = 0
+                currentState = ClockState.FIND_CLOCK
+                launchJiaqinShortcut()
             }
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
-    private fun launchFeishu() {
+    /**
+     * 通过模拟点击桌面上的"假勤"快捷图标来直接进入假勤页面。
+     * 原理：先回到桌面，然后通过无障碍服务扫描桌面上文字为"假勤"的节点并点击。
+     */
+    private fun launchJiaqinShortcut() {
+        // 先回到桌面
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        
+        // 等 1.5 秒让桌面完全加载，然后开始扫描
+        handler.postDelayed({
+            val rootNode = rootInActiveWindow
+            if (rootNode != null) {
+                val nodes = rootNode.findAccessibilityNodeInfosByText("假勤")
+                for (node in nodes) {
+                    if (clickNode(node)) {
+                        Log.d("AutoClock", "成功点击桌面上的'假勤'快捷方式！")
+                        currentState = ClockState.FIND_CLOCK
+                        return@postDelayed
+                    }
+                }
+            }
+            // 如果桌面上没找到"假勤"，尝试回退方案：直接通过飞书包名启动
+            Log.w("AutoClock", "桌面未找到'假勤'快捷方式，回退为启动飞书主页")
+            launchFeishuFallback()
+        }, 1500)
+    }
+
+    /**
+     * 回退方案：直接启动飞书主应用
+     */
+    private fun launchFeishuFallback() {
         try {
             val launchIntent = packageManager.getLaunchIntentForPackage(FEISHU_PACKAGE_NAME)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 startActivity(launchIntent)
-                Log.d("AutoClock", "成功拉起飞书，切换至 FIND_WORKBENCH")
+                Log.d("AutoClock", "成功拉起飞书主应用")
             } else {
                 Log.e("AutoClock", "未找到飞书包: $FEISHU_PACKAGE_NAME")
                 currentState = ClockState.IDLE
             }
         } catch (e: Exception) {
-            Log.e("AutoClock", "拉起异常: ${e.message}")
+            Log.e("AutoClock", "拉起飞书异常: ${e.message}")
             currentState = ClockState.IDLE
         }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (currentState == ClockState.IDLE || event == null) return
+        if (currentState == ClockState.IDLE || currentState == ClockState.DONE || event == null) return
         val rootNode = rootInActiveWindow ?: return
 
+        retryCount++
+        if (retryCount > MAX_RETRY) {
+            Log.e("AutoClock", "超过最大重试次数，自动中止并回到桌面")
+            currentState = ClockState.IDLE
+            retryCount = 0
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            return
+        }
+
         when (currentState) {
-            ClockState.FIND_WORKBENCH -> {
-                for (node in rootNode.findAccessibilityNodeInfosByText("工作台")) {
+            ClockState.FIND_CLOCK -> {
+                // 在假勤页面中寻找"打卡"入口
+                val nodes = rootNode.findAccessibilityNodeInfosByText("打卡")
+                for (node in nodes) {
+                    // 避免误点"上班打卡"或"下班打卡"（那是下一步的目标）
+                    val nodeText = node.text?.toString() ?: ""
+                    if (nodeText.contains("上班") || nodeText.contains("下班")) continue
+                    
                     if (clickNode(node)) {
-                        currentState = ClockState.FIND_CLOCK_APP
+                        Log.d("AutoClock", "成功点击'打卡'入口，进入打卡页面")
+                        currentState = ClockState.FIND_BUTTON
+                        retryCount = 0
                         return
                     }
                 }
             }
-            ClockState.FIND_CLOCK_APP -> {
-                for (node in rootNode.findAccessibilityNodeInfosByText("打卡")) {
-                    if (clickNode(node)) {
-                        currentState = ClockState.FIND_CLOCK_BUTTON
-                        return
-                    }
-                }
-            }
-            ClockState.FIND_CLOCK_BUTTON -> {
-                val targets = rootNode.findAccessibilityNodeInfosByText("上班打卡") + 
+            ClockState.FIND_BUTTON -> {
+                // 在打卡页面中寻找"上班打卡"或"下班打卡"按钮
+                val targets = rootNode.findAccessibilityNodeInfosByText("上班打卡") +
                               rootNode.findAccessibilityNodeInfosByText("下班打卡")
                 for (node in targets) {
                     if (clickNode(node)) {
-                        Log.d("AutoClock", "打卡大成功！")
+                        Log.d("AutoClock", "=== 打卡大成功！===")
                         currentState = ClockState.DONE
+                        retryCount = 0
                         handler.postDelayed({
                             performGlobalAction(GLOBAL_ACTION_HOME)
-                            UnlockHelper.releaseWakeLock() // 最后释放亮屏锁，彻底休眠
+                            UnlockHelper.releaseWakeLock()
                             currentState = ClockState.IDLE
+                            Log.d("AutoClock", "已返回桌面，流程结束")
                         }, 5000)
                         return
                     }
                 }
             }
-            ClockState.DONE -> {}
             else -> {}
         }
     }
