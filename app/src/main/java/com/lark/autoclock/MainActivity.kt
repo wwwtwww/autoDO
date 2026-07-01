@@ -22,12 +22,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btn_test_unlock).setOnClickListener {
-            Toast.makeText(this, "倒计时 10 秒钟...", Toast.LENGTH_SHORT).show()
-            Handler(Looper.getMainLooper()).postDelayed({
-                val intent = Intent(this, WakeActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            }, 10000)
+            Toast.makeText(this, "倒计时 10 秒钟，请立刻按电源键锁屏！", Toast.LENGTH_LONG).show()
+            
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java)
+            val pendingFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
+            } else {
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            }
+            val pendingIntent = android.app.PendingIntent.getBroadcast(this, 999, intent, pendingFlags)
+            
+            // 注册一个 10 秒后的高精度闹钟
+            alarmManager.setExactAndAllowWhileIdle(
+                android.app.AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 10000,
+                pendingIntent
+            )
         }
 
         findViewById<Button>(R.id.btn_test_clock_in).setOnClickListener {
