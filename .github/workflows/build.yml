@@ -23,6 +23,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.4'
+          cache-disabled: true
 
       - name: 编译 APK 并保存日志
         run: gradle assembleDebug --stacktrace --info > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
