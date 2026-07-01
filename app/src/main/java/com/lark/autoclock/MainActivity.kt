@@ -24,10 +24,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_test_unlock).setOnClickListener {
             Toast.makeText(this, "倒计时 10 秒钟...", Toast.LENGTH_SHORT).show()
             Handler(Looper.getMainLooper()).postDelayed({
-                UnlockHelper.wakeUpScreen(this)
-                val intent = Intent(this, com.lark.autoclock.service.AutoClockAccessibilityService::class.java)
-                intent.action = "ACTION_TEST_UNLOCK"
-                startService(intent)
+                val intent = Intent(this, WakeActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
             }, 10000)
         }
 
