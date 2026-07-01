@@ -25,12 +25,19 @@ jobs:
       - name: 赋予 Gradle 执行权限
         run: chmod +x gradlew
 
-      - name: 编译 APK
-        run: ./gradlew assembleDebug --stacktrace --info
+      - name: 编译 APK 并保存日志
+        run: ./gradlew assembleDebug --stacktrace --info > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
 
-      - name: 提取打包好的 APK
+      - name: 上传打包好的 APK
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: LarkAutoClock-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: 上传错误日志 (供排查)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Gradle-Error-Log
+          path: build_log.txt
