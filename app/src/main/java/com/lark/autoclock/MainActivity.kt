@@ -117,6 +117,16 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putBoolean(KEY_BATTERY_PROMPTED, true).apply()
                 requestIgnoreBatteryOptimization()
             }
+            
+            // 检查悬浮窗权限（用于后台启动 Activity 唤醒屏幕）
+            if (!Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "请开启悬浮窗权限，否则锁屏打卡将无法唤醒屏幕！", Toast.LENGTH_LONG).show()
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            }
         }
     }
 }
