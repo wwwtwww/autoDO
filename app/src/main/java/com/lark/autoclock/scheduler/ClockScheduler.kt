@@ -51,11 +51,11 @@ object ClockScheduler {
     fun scheduleTodayClockActions(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // 上班：08:45 ~ 08:55 随机触发
-        val clockInMinuteOffset = Random.nextInt(0, 11)
+        // 上班：07:30 ~ 08:20 随机触发 (50分钟跨度 = 51个分钟偏移)
+        val clockInMinuteOffset = Random.nextInt(0, 51)
         val clockInCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 8)
-            set(Calendar.MINUTE, 45 + clockInMinuteOffset)
+            set(Calendar.HOUR_OF_DAY, 7)
+            set(Calendar.MINUTE, 30 + clockInMinuteOffset)
             set(Calendar.SECOND, Random.nextInt(0, 60))
         }
 
@@ -83,6 +83,14 @@ object ClockScheduler {
         val pendingIntent = PendingIntent.getBroadcast(
             context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e("AutoClock", "未获得精确闹钟权限，无法设置定时任务！")
+                // 这里可以通过广播或其他方式通知 UI，但由于是在后台/接收器中调用，仅做 log
+                return
+            }
+        }
 
         // 申请并使用允许在 Doze 模式下唤醒设备的极高精度闹钟
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

@@ -5,8 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.content.SharedPreferences
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
@@ -16,9 +15,19 @@ import com.lark.autoclock.scheduler.ClockScheduler
 import com.lark.autoclock.utils.HolidayHelper
 
 class MainActivity : AppCompatActivity() {
+    private val PREFS_NAME = "AutoClockPrefs"
+    private val KEY_BATTERY_PROMPTED = "battery_prompted"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 请求 Android 13+ 通知权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
 
         // 1. 跳转无障碍设置
         findViewById<Button>(R.id.btn_enable_accessibility).setOnClickListener {
@@ -98,10 +107,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 每次回到主界面都检查一次电池优化状态
+        // 每次回到主界面都检查一次电池优化状态，但使用 SharedPreferences 避免无限弹窗
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val hasPrompted = prefs.getBoolean(KEY_BATTERY_PROMPTED, false)
+
+            if (!pm.isIgnoringBatteryOptimizations(packageName) && !hasPrompted) {
+                prefs.edit().putBoolean(KEY_BATTERY_PROMPTED, true).apply()
                 requestIgnoreBatteryOptimization()
             }
         }

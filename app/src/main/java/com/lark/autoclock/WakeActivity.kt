@@ -12,6 +12,8 @@ import android.view.WindowManager
 import com.lark.autoclock.service.AutoClockAccessibilityService
 
 class WakeActivity : Activity() {
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("WakeActivity", "=== WakeActivity.onCreate 已执行！===")
@@ -47,11 +49,11 @@ class WakeActivity : Activity() {
         // 方式 C：再加一层 WakeLock（如果 ClockActionReceiver 的 WakeLock 被释放太快）
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         @Suppress("DEPRECATION")
-        val wl = pm.newWakeLock(
+        wakeLock = pm.newWakeLock(
             PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "LarkAutoClock::WakeActivityLock"
         )
-        wl.acquire(30 * 1000L)
+        wakeLock?.acquire(30 * 1000L)
 
         val chainAction = intent.getStringExtra("CHAIN_ACTION")
         Log.d("WakeActivity", "链式动作: $chainAction")
@@ -65,9 +67,16 @@ class WakeActivity : Activity() {
             }
             // 延迟释放 WakeLock 和关闭 Activity
             window.decorView.postDelayed({
-                if (wl.isHeld) wl.release()
+                if (wakeLock?.isHeld == true) wakeLock?.release()
                 finish()
             }, 3000)
         }, 2000) // 给系统足够时间完成亮屏和解锁动画
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
     }
 }
