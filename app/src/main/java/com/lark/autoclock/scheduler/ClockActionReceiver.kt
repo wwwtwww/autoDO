@@ -60,8 +60,9 @@ class ClockActionReceiver : BroadcastReceiver() {
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setAutoCancel(true)
 
-        notificationManager.notify(1001, notificationBuilder.build())
-        Log.d("AutoClock", "全屏通知已发送")
+        val notificationId = System.currentTimeMillis().toInt()
+        notificationManager.notify(notificationId, notificationBuilder.build())
+        Log.d("AutoClock", "全屏通知已发送，ID: $notificationId")
 
         // ======== 第 3 层：直接强行启动 WakeActivity（双保险，防止全屏通知被 ColorOS 拦截）========
         try {

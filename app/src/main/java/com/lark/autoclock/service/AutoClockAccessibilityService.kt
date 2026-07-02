@@ -86,6 +86,12 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (currentState == ClockState.IDLE || currentState == ClockState.DONE || event == null) return
+        
+        // 仅在明确进入打卡流程时过滤飞书包名，降低无障碍服务的全局开销
+        if (currentState == ClockState.FIND_CLOCK || currentState == ClockState.FIND_BUTTON) {
+            if (event.packageName?.toString() != FEISHU_PACKAGE_NAME) return
+        }
+
         val rootNode = rootInActiveWindow ?: return
 
         retryCount++
