@@ -19,7 +19,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
      * DONE         -> 打卡完成，等待回到桌面
      */
     enum class ClockState {
-        IDLE, FIND_CLOCK, FIND_BUTTON, DONE
+        IDLE, FIND_JIAQIN, FIND_CLOCK, FIND_BUTTON, DONE
     }
 
     private var currentState = ClockState.IDLE
@@ -43,41 +43,22 @@ class AutoClockAccessibilityService : AccessibilityService() {
             "ACTION_START_CLOCK_IN" -> {
                 Log.d("AutoClock", "=== 收到打卡指令，启动桌面假勤快捷方式 ===")
                 retryCount = 0
-                currentState = ClockState.FIND_CLOCK
-                launchJiaqinShortcut()
+                currentState = ClockState.FIND_JIAQIN
+                
+                showToast("正在回到桌面，尝试寻找'假勤'快捷方式...")
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                
+                // 10秒后如果还在寻找桌面快捷方式，说明找不到，触发回退策略
+                handler.postDelayed({
+                    if (currentState == ClockState.FIND_JIAQIN) {
+                        Log.w("AutoClock", "桌面未找到'假勤'快捷方式，回退为启动飞书主页")
+                        showToast("未找到桌面'假勤'快捷方式，尝试直接拉起飞书主应用...")
+                        launchFeishuFallback()
+                    }
+                }, 10000)
             }
         }
         return super.onStartCommand(intent, flags, startId)
-    }
-
-    /**
-     * 通过模拟点击桌面上的"假勤"快捷图标来直接进入假勤页面。
-     * 原理：先回到桌面，然后通过无障碍服务扫描桌面上文字为"假勤"的节点并点击。
-     */
-    private fun launchJiaqinShortcut() {
-        showToast("正在回到桌面，尝试寻找'假勤'快捷方式...")
-        // 先回到桌面
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        
-        // 等 1.5 秒让桌面完全加载，然后开始扫描
-        handler.postDelayed({
-            val rootNode = rootInActiveWindow
-            if (rootNode != null) {
-                val nodes = rootNode.findAccessibilityNodeInfosByText("假勤")
-                for (node in nodes) {
-                    if (clickNode(node)) {
-                        Log.d("AutoClock", "成功点击桌面上的'假勤'快捷方式！")
-                        showToast("已点击'假勤'，等待飞书打开...")
-                        currentState = ClockState.FIND_CLOCK
-                        return@postDelayed
-                    }
-                }
-            }
-            // 如果桌面上没找到"假勤"，尝试回退方案：直接通过飞书包名启动
-            Log.w("AutoClock", "桌面未找到'假勤'快捷方式，回退为启动飞书主页")
-            showToast("未找到桌面'假勤'快捷方式，尝试直接拉起飞书主应用...")
-            launchFeishuFallback()
-        }, 1500)
     }
 
     /**
@@ -118,6 +99,19 @@ class AutoClockAccessibilityService : AccessibilityService() {
         }
 
         when (currentState) {
+            ClockState.FIND_JIAQIN -> {
+                // 在桌面寻找假勤
+                val nodes = rootNode.findAccessibilityNodeInfosByText("假勤")
+                for (node in nodes) {
+                    if (clickNode(node)) {
+                        Log.d("AutoClock", "成功点击桌面上的'假勤'快捷方式！")
+                        showToast("已点击'假勤'，等待飞书打开...")
+                        currentState = ClockState.FIND_CLOCK
+                        retryCount = 0
+                        return
+                    }
+                }
+            }
             ClockState.FIND_CLOCK -> {
                 // 在假勤页面中寻找"打卡"入口
                 val nodes = rootNode.findAccessibilityNodeInfosByText("打卡")
