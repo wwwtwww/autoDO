@@ -8,9 +8,15 @@ import android.os.Bundle
 import android.content.SharedPreferences
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.Html
+import android.text.Spanned
 import android.widget.Button
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import java.io.File
 import com.lark.autoclock.scheduler.ClockScheduler
 import com.lark.autoclock.utils.HolidayHelper
 
@@ -81,6 +87,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }.start()
         }
+
+        // 5. 查看打卡日志
+        findViewById<Button>(R.id.btn_view_logs).setOnClickListener {
+            showLogsDialog()
+        }
     }
 
     /**
@@ -128,5 +139,51 @@ class MainActivity : AppCompatActivity() {
                 startActivity(intent)
             }
         }
+    }
+
+    private fun showLogsDialog() {
+        val logFile = File(filesDir, "clock_log.txt")
+        if (!logFile.exists() || logFile.length() == 0L) {
+            Toast.makeText(this, "暂无打卡记录", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val logs = try {
+            logFile.readLines().reversed().joinToString("<br><br>") { line ->
+                when {
+                    line.contains("✅") -> "<font color='#4CAF50'>$line</font>"
+                    line.contains("⚠️") -> "<font color='#F44336'>$line</font>"
+                    else -> line
+                }
+            }
+        } catch (e: Exception) {
+            "读取日志失败: ${e.message}"
+        }
+
+        val spannedLog: Spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Html.fromHtml(logs, Html.FROM_HTML_MODE_COMPACT)
+        } else {
+            @Suppress("DEPRECATION")
+            Html.fromHtml(logs)
+        }
+
+        val scrollView = ScrollView(this)
+        val textView = TextView(this).apply {
+            text = spannedLog
+            setPadding(50, 50, 50, 50)
+            textSize = 14f
+        }
+        scrollView.addView(textView)
+
+        AlertDialog.Builder(this)
+            .setTitle("打卡历史记录 (最近在上)")
+            .setView(scrollView)
+            .setPositiveButton("关闭", null)
+            .setNeutralButton("清空记录") { _, _ ->
+                if (logFile.delete()) {
+                    Toast.makeText(this, "记录已清空", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
     }
 }
