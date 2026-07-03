@@ -1,36 +1,50 @@
 package com.lark.autoclock.service
 
 import android.accessibilityservice.AccessibilityService
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AutoClockAccessibilityService : AccessibilityService() {
 
     /**
-     * 状态机：
-     * IDLE         -> 空闲，不响应任何事件
-     * FIND_JIAQIN  -> 在桌面寻找"假勤"快捷方式
-     * FIND_CLOCK   -> 进入假勤页面后，寻找"打卡"入口
-     * FIND_BUTTON  -> 进入打卡页面后，寻找"上班打卡"或"下班打卡"按钮
-     * DONE         -> 打卡完成，等待回到桌面
+     * 简化后的状态机（配合极速打卡）：
+     * IDLE          -> 空闲，不响应任何事件
+     * WAIT_CONFIRM  -> 已拉起飞书，等待检测打卡结果
+     * DONE          -> 打卡完成
      */
     enum class ClockState {
-        IDLE, FIND_JIAQIN, FIND_CLOCK, FIND_BUTTON, DONE
+        IDLE, WAIT_CONFIRM, DONE
     }
 
     private var currentState = ClockState.IDLE
     private val handler = Handler(Looper.getMainLooper())
     private var retryCount = 0
-    private val MAX_RETRY = 30
+    private val MAX_RETRY = 30 // 约 30 秒超时
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
         const val TAG = "AutoClock"
+        const val NOTIFICATION_CHANNEL_ID = "autoclock_result"
+
+        // 极速打卡成功后，飞书界面上可能出现的关键词
+        val CLOCK_SUCCESS_KEYWORDS = listOf(
+            "打卡成功", "已打卡", "上班·已打卡", "下班·已打卡",
+            "更新打卡", "已于", "打卡时间"
+        )
     }
 
     private fun showToast(message: String) {
@@ -42,229 +56,183 @@ class AutoClockAccessibilityService : AccessibilityService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             "ACTION_START_CLOCK_IN" -> {
-                Log.d(TAG, "=== 收到打卡指令，启动桌面假勤快捷方式 ===")
+                Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式）===")
                 retryCount = 0
-                currentState = ClockState.FIND_JIAQIN
+                currentState = ClockState.WAIT_CONFIRM
 
-                showToast("正在回到桌面，尝试寻找'假勤'快捷方式...")
-                performGlobalAction(GLOBAL_ACTION_HOME)
+                showToast("正在启动飞书，等待极速打卡...")
+                launchFeishu()
 
-                // 主动轮询扫描桌面：从 1.5 秒后开始，每隔 1.5 秒扫描一次，最多 5 轮
-                scheduleActiveJiaqinScan(attemptNumber = 1, maxAttempts = 5)
+                // 超时机制：15 秒后如果还没确认到打卡结果
+                handler.postDelayed({
+                    if (currentState == ClockState.WAIT_CONFIRM) {
+                        Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
+                        // 虽然没检测到确认文字，但极速打卡大概率已经成功
+                        val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
+                        showToast(msg)
+                        recordClockResult(confirmed = false, detail = msg)
+                        sendResultNotification(confirmed = false)
+                        goHomeAndReset()
+                    }
+                }, 15000)
             }
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
     /**
-     * 主动轮询扫描桌面上的"假勤"快捷方式。
-     * 不依赖 onAccessibilityEvent 回调，因为桌面已在前台时可能不会触发新事件。
+     * 直接启动飞书
      */
-    private fun scheduleActiveJiaqinScan(attemptNumber: Int, maxAttempts: Int) {
-        handler.postDelayed({
-            if (currentState != ClockState.FIND_JIAQIN) return@postDelayed // 已被事件回调找到了
-
-            Log.d(TAG, "主动扫描桌面第 $attemptNumber 轮...")
-            val rootNode = rootInActiveWindow
-            if (rootNode != null) {
-                // 打印当前窗口的包名，帮助调试
-                Log.d(TAG, "当前窗口包名: ${rootNode.packageName}")
-
-                // 策略1: 使用系统 API 搜索（同时搜索 text 和 contentDescription）
-                val found = tryFindAndClickJiaqin(rootNode)
-                if (found) return@postDelayed
-
-                // 策略2: 深度递归遍历节点树搜索
-                val foundDeep = deepSearchAndClickJiaqin(rootNode)
-                if (foundDeep) return@postDelayed
-
-                // 都没找到，最后一轮输出节点树帮助调试
-                if (attemptNumber == maxAttempts) {
-                    Log.w(TAG, "=== 最后一轮仍未找到，输出桌面节点树用于调试 ===")
-                    dumpNodeTree(rootNode, depth = 0)
-                }
-            } else {
-                Log.w(TAG, "主动扫描: rootInActiveWindow 为 null")
-            }
-
-            if (attemptNumber < maxAttempts) {
-                scheduleActiveJiaqinScan(attemptNumber + 1, maxAttempts)
-            } else {
-                // 所有轮次扫描完毕仍未找到，触发回退
-                if (currentState == ClockState.FIND_JIAQIN) {
-                    Log.w(TAG, "桌面未找到'假勤'快捷方式，回退为启动飞书主页")
-                    showToast("未找到桌面'假勤'快捷方式，尝试直接拉起飞书...")
-                    launchFeishuFallback()
-                }
-            }
-        }, 1500)
-    }
-
-    /**
-     * 策略1：通过 findAccessibilityNodeInfosByText 搜索"假勤"
-     */
-    private fun tryFindAndClickJiaqin(rootNode: AccessibilityNodeInfo): Boolean {
-        val nodes = rootNode.findAccessibilityNodeInfosByText("假勤")
-        Log.d(TAG, "findByText('假勤') 找到 ${nodes.size} 个节点")
-        for (node in nodes) {
-            Log.d(TAG, "  候选节点: text='${node.text}', desc='${node.contentDescription}', class=${node.className}, clickable=${node.isClickable}")
-            if (clickNode(node)) {
-                Log.d(TAG, "成功点击桌面上的'假勤'快捷方式！")
-                showToast("已点击'假勤'，等待飞书打开...")
-                currentState = ClockState.FIND_CLOCK
-                retryCount = 0
-                return true
-            }
-        }
-        return false
-    }
-
-    /**
-     * 策略2：深度递归遍历整个节点树，检查 text 和 contentDescription 是否包含"假勤"
-     */
-    private fun deepSearchAndClickJiaqin(rootNode: AccessibilityNodeInfo): Boolean {
-        val matchingNodes = mutableListOf<AccessibilityNodeInfo>()
-        collectNodesByKeyword(rootNode, "假勤", matchingNodes)
-        Log.d(TAG, "深度递归搜索找到 ${matchingNodes.size} 个匹配节点")
-        for (node in matchingNodes) {
-            Log.d(TAG, "  深度匹配: text='${node.text}', desc='${node.contentDescription}', class=${node.className}")
-            if (clickNode(node)) {
-                Log.d(TAG, "通过深度搜索成功点击'假勤'！")
-                showToast("已点击'假勤'，等待飞书打开...")
-                currentState = ClockState.FIND_CLOCK
-                retryCount = 0
-                return true
-            }
-        }
-        return false
-    }
-
-    /**
-     * 递归收集节点树中 text 或 contentDescription 包含关键词的所有节点
-     */
-    private fun collectNodesByKeyword(
-        node: AccessibilityNodeInfo,
-        keyword: String,
-        result: MutableList<AccessibilityNodeInfo>
-    ) {
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        if (text.contains(keyword) || desc.contains(keyword)) {
-            result.add(node)
-        }
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            collectNodesByKeyword(child, keyword, result)
-        }
-    }
-
-    /**
-     * 调试用：打印节点树结构（最多 3 层深度）
-     */
-    private fun dumpNodeTree(node: AccessibilityNodeInfo, depth: Int) {
-        if (depth > 3) return
-        val indent = "  ".repeat(depth)
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        if (text.isNotEmpty() || desc.isNotEmpty()) {
-            Log.d(TAG, "${indent}[${node.className}] text='$text' desc='$desc' clickable=${node.isClickable}")
-        }
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            dumpNodeTree(child, depth + 1)
-        }
-    }
-
-    /**
-     * 回退方案：直接启动飞书主应用
-     */
-    private fun launchFeishuFallback() {
-        currentState = ClockState.FIND_CLOCK
-        retryCount = 0
+    private fun launchFeishu() {
         try {
             val launchIntent = packageManager.getLaunchIntentForPackage(FEISHU_PACKAGE_NAME)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 startActivity(launchIntent)
-                Log.d(TAG, "成功拉起飞书主应用")
-                showToast("已拉起飞书，正在扫描页面...")
+                Log.d(TAG, "成功拉起飞书")
+                showToast("飞书已启动，正在等待极速打卡确认...")
             } else {
                 Log.e(TAG, "未找到飞书包: $FEISHU_PACKAGE_NAME")
                 showToast("未找到飞书 App，打卡中止")
+                recordClockResult(confirmed = false, detail = "未找到飞书 App")
+                sendResultNotification(confirmed = false, detail = "未找到飞书 App")
                 currentState = ClockState.IDLE
             }
         } catch (e: Exception) {
             Log.e(TAG, "拉起飞书异常: ${e.message}")
             showToast("启动飞书异常: ${e.message}")
+            recordClockResult(confirmed = false, detail = "启动飞书异常: ${e.message}")
+            sendResultNotification(confirmed = false, detail = "启动飞书异常")
             currentState = ClockState.IDLE
         }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (currentState == ClockState.IDLE || currentState == ClockState.DONE || event == null) return
+        if (currentState != ClockState.WAIT_CONFIRM || event == null) return
 
-        // FIND_JIAQIN 阶段：不过滤包名（需要接收 Launcher 事件）
-        // FIND_CLOCK / FIND_BUTTON 阶段：只处理飞书事件，降低开销
-        if (currentState == ClockState.FIND_CLOCK || currentState == ClockState.FIND_BUTTON) {
-            if (event.packageName?.toString() != FEISHU_PACKAGE_NAME) return
-        }
+        // 只关注飞书的事件
+        if (event.packageName?.toString() != FEISHU_PACKAGE_NAME) return
 
         val rootNode = rootInActiveWindow ?: return
 
         retryCount++
-        if (retryCount > MAX_RETRY) {
-            Log.e(TAG, "超过最大重试次数，自动中止并回到桌面")
-            showToast("打卡流程超时，未找到对应按钮！")
-            currentState = ClockState.IDLE
-            retryCount = 0
+        if (retryCount > MAX_RETRY) return // 超时由 handler 处理
+
+        // 扫描飞书界面上是否出现了打卡成功的关键词
+        for (keyword in CLOCK_SUCCESS_KEYWORDS) {
+            val nodes = rootNode.findAccessibilityNodeInfosByText(keyword)
+            if (nodes.isNotEmpty()) {
+                val matchedText = nodes.firstOrNull()?.text?.toString() ?: keyword
+                Log.d(TAG, "=== 检测到极速打卡成功标志: '$matchedText' ===")
+                val msg = "极速打卡成功！检测到: $matchedText"
+                showToast("✅ $msg")
+                recordClockResult(confirmed = true, detail = msg)
+                sendResultNotification(confirmed = true, detail = matchedText)
+                goHomeAndReset()
+                return
+            }
+        }
+
+        // 同时尝试深度搜索
+        val allText = collectAllText(rootNode)
+        for (keyword in CLOCK_SUCCESS_KEYWORDS) {
+            if (allText.contains(keyword)) {
+                Log.d(TAG, "=== 深度搜索检测到极速打卡成功标志: '$keyword' ===")
+                val msg = "极速打卡成功！检测到: $keyword"
+                showToast("✅ $msg")
+                recordClockResult(confirmed = true, detail = msg)
+                sendResultNotification(confirmed = true, detail = keyword)
+                goHomeAndReset()
+                return
+            }
+        }
+    }
+
+    /**
+     * 递归收集节点树中所有可见文字
+     */
+    private fun collectAllText(node: AccessibilityNodeInfo): String {
+        val sb = StringBuilder()
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        if (text.isNotEmpty()) sb.append(text).append(" ")
+        if (desc.isNotEmpty()) sb.append(desc).append(" ")
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            sb.append(collectAllText(child))
+        }
+        return sb.toString()
+    }
+
+    /**
+     * 返回桌面并重置状态
+     */
+    private fun goHomeAndReset() {
+        currentState = ClockState.DONE
+        retryCount = 0
+        handler.postDelayed({
             performGlobalAction(GLOBAL_ACTION_HOME)
-            return
+            currentState = ClockState.IDLE
+            Log.d(TAG, "已返回桌面，流程结束")
+        }, 3000)
+    }
+
+    /**
+     * 将打卡结果写入本地日志文件，方便事后查看
+     * 日志路径: /data/data/com.lark.autoclock/files/clock_log.txt
+     */
+    private fun recordClockResult(confirmed: Boolean, detail: String) {
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val timestamp = sdf.format(Date())
+            val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
+            val logLine = "[$timestamp] $status | $detail\n"
+
+            val logFile = File(applicationContext.filesDir, "clock_log.txt")
+            logFile.appendText(logLine)
+            Log.d(TAG, "打卡日志已写入: $logLine")
+        } catch (e: Exception) {
+            Log.e(TAG, "写入打卡日志失败: ${e.message}")
+        }
+    }
+
+    /**
+     * 发送一条常驻通知，显示打卡结果
+     */
+    private fun sendResultNotification(confirmed: Boolean, detail: String = "") {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "打卡结果通知",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "显示自动打卡的执行结果"
+            }
+            notificationManager.createNotificationChannel(channel)
         }
 
-        when (currentState) {
-            ClockState.FIND_JIAQIN -> {
-                // 事件驱动的扫描（作为主动轮询的补充）
-                if (tryFindAndClickJiaqin(rootNode) || deepSearchAndClickJiaqin(rootNode)) {
-                    return
-                }
-            }
-            ClockState.FIND_CLOCK -> {
-                // 在假勤页面中寻找"打卡"入口
-                val nodes = rootNode.findAccessibilityNodeInfosByText("打卡")
-                for (node in nodes) {
-                    val nodeText = node.text?.toString() ?: ""
-                    if (nodeText.contains("上班") || nodeText.contains("下班")) continue
-
-                    if (clickNode(node)) {
-                        Log.d(TAG, "成功点击'打卡'入口，进入打卡页面")
-                        showToast("正在打开打卡页面...")
-                        currentState = ClockState.FIND_BUTTON
-                        retryCount = 0
-                        return
-                    }
-                }
-            }
-            ClockState.FIND_BUTTON -> {
-                // 在打卡页面中寻找"上班打卡"或"下班打卡"按钮
-                val targets = rootNode.findAccessibilityNodeInfosByText("上班打卡") +
-                              rootNode.findAccessibilityNodeInfosByText("下班打卡")
-                for (node in targets) {
-                    if (clickNode(node)) {
-                        Log.d(TAG, "=== 打卡大成功！===")
-                        showToast("打卡大成功！")
-                        currentState = ClockState.DONE
-                        retryCount = 0
-                        handler.postDelayed({
-                            performGlobalAction(GLOBAL_ACTION_HOME)
-                            currentState = ClockState.IDLE
-                            Log.d(TAG, "已返回桌面，流程结束")
-                        }, 5000)
-                        return
-                    }
-                }
-            }
-            else -> {}
+        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val timeStr = sdf.format(Date())
+        val title = if (confirmed) "✅ 打卡成功" else "⚠️ 打卡状态待确认"
+        val content = if (confirmed) {
+            "[$timeStr] 极速打卡已确认成功 | $detail"
+        } else {
+            "[$timeStr] 飞书已启动，请手动确认打卡结果"
         }
+
+        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationId = System.currentTimeMillis().toInt()
+        notificationManager.notify(notificationId, notification)
     }
 
     private fun clickNode(node: AccessibilityNodeInfo): Boolean {
