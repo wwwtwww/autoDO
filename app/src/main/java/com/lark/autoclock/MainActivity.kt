@@ -10,7 +10,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.Html
 import android.text.Spanned
+import android.view.LayoutInflater
 import android.widget.Button
+import android.app.TimePickerDialog
+import java.util.Locale
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -91,6 +94,11 @@ class MainActivity : AppCompatActivity() {
         // 5. 查看打卡日志
         findViewById<Button>(R.id.btn_view_logs).setOnClickListener {
             showLogsDialog()
+        }
+
+        // 6. 配置随机打卡时间段
+        findViewById<Button>(R.id.btn_config_time).setOnClickListener {
+            showTimeConfigDialog()
         }
     }
 
@@ -184,6 +192,55 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "记录已清空", Toast.LENGTH_SHORT).show()
                 }
             }
+            .show()
+    }
+
+    private fun showTimeConfigDialog() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_time_config, null)
+        
+        val tvMStart = view.findViewById<TextView>(R.id.tv_morning_start)
+        val tvMEnd = view.findViewById<TextView>(R.id.tv_morning_end)
+        val tvAStart = view.findViewById<TextView>(R.id.tv_afternoon_start)
+        val tvAEnd = view.findViewById<TextView>(R.id.tv_afternoon_end)
+
+        tvMStart.text = prefs.getString("morning_start", "07:30")
+        tvMEnd.text = prefs.getString("morning_end", "08:20")
+        tvAStart.text = prefs.getString("afternoon_start", "18:00")
+        tvAEnd.text = prefs.getString("afternoon_end", "18:10")
+
+        val setupTimePicker = { tv: TextView ->
+            tv.setOnClickListener {
+                val time = tv.text.toString().split(":")
+                val hour = time[0].toInt()
+                val minute = time[1].toInt()
+                TimePickerDialog(this, { _, selectedHour, selectedMinute ->
+                    tv.text = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
+                }, hour, minute, true).show()
+            }
+        }
+
+        setupTimePicker(tvMStart)
+        setupTimePicker(tvMEnd)
+        setupTimePicker(tvAStart)
+        setupTimePicker(tvAEnd)
+
+        AlertDialog.Builder(this)
+            .setTitle("配置随机打卡时间段")
+            .setView(view)
+            .setPositiveButton("保存并生效") { _, _ ->
+                prefs.edit()
+                    .putString("morning_start", tvMStart.text.toString())
+                    .putString("morning_end", tvMEnd.text.toString())
+                    .putString("afternoon_start", tvAStart.text.toString())
+                    .putString("afternoon_end", tvAEnd.text.toString())
+                    .apply()
+                
+                // 重新下发闹钟
+                ClockScheduler.scheduleTodayClockActions(this)
+                Toast.makeText(this, "时间配置已保存，今日闹钟已重新调度！", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
             .show()
     }
 }

@@ -50,4 +50,11 @@
         android:text="5. 查看打卡历史日志"
         android:layout_marginTop="15dp"/>
         
+    <Button
+        android:id="@+id/btn_config_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⚙️ 配置随机打卡时间段"
+        android:layout_marginTop="15dp"/>
+        
 </LinearLayout>

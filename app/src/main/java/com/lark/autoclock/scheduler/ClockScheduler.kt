@@ -11,8 +11,8 @@ import kotlin.random.Random
 
 object ClockScheduler {
     
-    // 假设：基准上班时间为 09:00，下班时间为 18:00
     // 真实业务中，这些时间应该从 SharedPreferences 中读取
+    private const val PREFS_NAME = "AutoClockPrefs"
 
     /**
      * 激活每天凌晨 00:30 的日程调度器
@@ -50,20 +50,44 @@ object ClockScheduler {
      */
     fun scheduleTodayClockActions(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        // 上班：07:30 ~ 08:20 随机触发 (50分钟跨度 = 51个分钟偏移)
-        val clockInMinuteOffset = Random.nextInt(0, 51)
+        // 读取上班配置，默认 07:30 ~ 08:20
+        val mStart = prefs.getString("morning_start", "07:30")!!.split(":")
+        val mEnd = prefs.getString("morning_end", "08:20")!!.split(":")
+        val mStartHour = mStart[0].toInt()
+        val mStartMin = mStart[1].toInt()
+        val mEndHour = mEnd[0].toInt()
+        val mEndMin = mEnd[1].toInt()
+
+        // 计算上班随机偏移区间 (分钟)
+        val mStartTotalMins = mStartHour * 60 + mStartMin
+        val mEndTotalMins = mEndHour * 60 + mEndMin
+        val mDiff = (mEndTotalMins - mStartTotalMins).coerceAtLeast(0)
+        val clockInMinuteOffset = if (mDiff > 0) Random.nextInt(0, mDiff + 1) else 0
+
         val clockInCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 7)
-            set(Calendar.MINUTE, 30 + clockInMinuteOffset)
+            set(Calendar.HOUR_OF_DAY, mStartHour)
+            set(Calendar.MINUTE, mStartMin + clockInMinuteOffset)
             set(Calendar.SECOND, Random.nextInt(0, 60))
         }
 
-        // 下班：18:00 ~ 18:10 随机触发
-        val clockOutMinuteOffset = Random.nextInt(0, 11)
+        // 读取下班配置，默认 18:00 ~ 18:10
+        val aStart = prefs.getString("afternoon_start", "18:00")!!.split(":")
+        val aEnd = prefs.getString("afternoon_end", "18:10")!!.split(":")
+        val aStartHour = aStart[0].toInt()
+        val aStartMin = aStart[1].toInt()
+        val aEndHour = aEnd[0].toInt()
+        val aEndMin = aEnd[1].toInt()
+
+        val aStartTotalMins = aStartHour * 60 + aStartMin
+        val aEndTotalMins = aEndHour * 60 + aEndMin
+        val aDiff = (aEndTotalMins - aStartTotalMins).coerceAtLeast(0)
+        val clockOutMinuteOffset = if (aDiff > 0) Random.nextInt(0, aDiff + 1) else 0
+
         val clockOutCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 18)
-            set(Calendar.MINUTE, clockOutMinuteOffset)
+            set(Calendar.HOUR_OF_DAY, aStartHour)
+            set(Calendar.MINUTE, aStartMin + clockOutMinuteOffset)
             set(Calendar.SECOND, Random.nextInt(0, 60))
         }
 
