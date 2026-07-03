@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
 
         // 3. 单独测试飞书打卡
         findViewById<Button>(R.id.btn_test_clock_in).setOnClickListener {
-            Toast.makeText(this, "正在启动飞书自动打卡...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "正在启动极速打卡测试流...", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, com.lark.autoclock.service.AutoClockAccessibilityService::class.java)
             intent.action = "ACTION_START_CLOCK_IN"
             startService(intent)
@@ -75,17 +75,17 @@ class MainActivity : AppCompatActivity() {
         // 4. 激活正式任务
         findViewById<Button>(R.id.btn_schedule_tasks).setOnClickListener {
             ClockScheduler.scheduleDailySetup(this)
-            Toast.makeText(this, "调度系统已就绪！每晚 00:30 将自动查询 API 并在工作日随机安排。", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "守护进程已启动，请将手机放置在充电座上即可，无需其他操作。", Toast.LENGTH_LONG).show()
 
             Thread {
                 if (HolidayHelper.isTodayWorkday()) {
                     runOnUiThread {
                         ClockScheduler.scheduleTodayClockActions(this@MainActivity)
-                        Toast.makeText(this@MainActivity, "今天为工作日，防作弊随机打卡已下发系统底层闹钟！", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "今天为工作日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
                     }
                 } else {
                     runOnUiThread {
-                        Toast.makeText(this@MainActivity, "网络查询结果：今天是节假日，休息！", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "节假日判定：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
                     }
                 }
             }.start()
