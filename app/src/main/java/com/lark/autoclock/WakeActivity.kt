@@ -51,7 +51,7 @@ class WakeActivity : Activity() {
         @Suppress("DEPRECATION")
         wakeLock = pm.newWakeLock(
             PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "LarkAutoClock::WakeActivityLock"
+            "autoDO::WakeActivityLock"
         )
         wakeLock?.acquire(30 * 1000L)
 

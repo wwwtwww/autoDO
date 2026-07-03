@@ -23,7 +23,7 @@ class ClockActionReceiver : BroadcastReceiver() {
             PowerManager.FULL_WAKE_LOCK or
             PowerManager.ACQUIRE_CAUSES_WAKEUP or
             PowerManager.ON_AFTER_RELEASE,
-            "LarkAutoClock::FullWakeLock"
+            "autoDO::FullWakeLock"
         )
         wakeLock.acquire(60 * 1000L) // 持有 60 秒
         Log.d("AutoClock", "WakeLock 已获取，屏幕应该已被点亮")
@@ -53,7 +53,7 @@ class ClockActionReceiver : BroadcastReceiver() {
 
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("LarkAutoClock 打卡触发")
+            .setContentTitle("autoDO 打卡触发")
             .setContentText("正在强制唤醒屏幕并执行打卡...")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

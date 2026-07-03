@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "LarkAutoClock"
+rootProject.name = "autoDO"
 include(":app")
