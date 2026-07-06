@@ -146,6 +146,22 @@ class MainActivity : AppCompatActivity() {
                 )
                 startActivity(intent)
             }
+
+            // 检查 Android 12+ 精确闹钟权限
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                if (!alarmManager.canScheduleExactAlarms()) {
+                    Toast.makeText(this, "请授权精确闹钟权限，否则打卡闹钟将无法准时触发！", Toast.LENGTH_LONG).show()
+                    try {
+                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AutoClock", "跳转精确闹钟设置失败: ${e.message}")
+                    }
+                }
+            }
         }
     }
 
@@ -250,11 +266,35 @@ class MainActivity : AppCompatActivity() {
             .setCustomTitle(titleView)
             .setView(view)
             .setPositiveButton("保存并生效") { _, _ ->
+                val mStartStr = tvMStart.text.toString()
+                val mEndStr = tvMEnd.text.toString()
+                val aStartStr = tvAStart.text.toString()
+                val aEndStr = tvAEnd.text.toString()
+
+                val isTimeValid = { s: String, e: String ->
+                    try {
+                        val (sh, sm) = s.split(":").map { it.toInt() }
+                        val (eh, em) = e.split(":").map { it.toInt() }
+                        (eh * 60 + em) > (sh * 60 + sm)
+                    } catch (ex: Exception) {
+                        false
+                    }
+                }
+
+                if (!isTimeValid(mStartStr, mEndStr)) {
+                    Toast.makeText(this, "保存失败：上午打卡结束时间必须晚于开始时间！", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                if (!isTimeValid(aStartStr, aEndStr)) {
+                    Toast.makeText(this, "保存失败：下午打卡结束时间必须晚于开始时间！", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+
                 prefs.edit()
-                    .putString("morning_start", tvMStart.text.toString())
-                    .putString("morning_end", tvMEnd.text.toString())
-                    .putString("afternoon_start", tvAStart.text.toString())
-                    .putString("afternoon_end", tvAEnd.text.toString())
+                    .putString("morning_start", mStartStr)
+                    .putString("morning_end", mEndStr)
+                    .putString("afternoon_start", aStartStr)
+                    .putString("afternoon_end", aEndStr)
                     .apply()
                 
                 // 重新下发闹钟

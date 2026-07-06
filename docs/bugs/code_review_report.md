@@ -1,56 +1,37 @@
-# Code Review Report — autoDO (第五轮完整审查)
+# Bug Investigation & RCA Report — autoDO
 
-## Summary
-本项目（autoDO 飞书自动打卡辅助应用）在此前四轮深度重构与 Bug 修复的基础上，近期完成了应用全量重命名（从 `LarkAutoClock` 重命名为 `autoDO`）、UI/UX 全面现代 Material 风格升级、Android 11+ 包可见性适配（`<queries>` 声明）以及 ADB 一键部署脚本的加入。
-
-经过本轮全面代码审查，项目无任何阻碍性致命缺陷（Critical Issues），架构设计成熟，性能开销极低，生产环境部署就绪度达到最高水准。
-
-## Status: APPROVED
+## 1. Bug 排查背景与分析 (Symptom Analysis)
+在持续维护与实测过程中，针对 Android 12+ (API 31+) 设备及各国产 ROM 开展了深度的稳定性及异常排查。排查重点围绕**打卡定时任务静默失效**、**精确闹钟权限缺失隐患**以及**时间配置非法输入校验**展开。
 
 ---
 
-## 修复与最新改进验证
+## 2. 根因分析 (Root Cause Analysis - RCA)
 
-### ✅ 最新提交与改动验证
+### 🔴 RCA 1: Android 12+ 精确闹钟权限缺失导致打卡任务静默失效
+* **根因路径**: `ClockScheduler.kt` 在设置精确闹钟前检查了 `alarmManager.canScheduleExactAlarms()`。当权限未授予时仅输出 Log 并返回，而 `MainActivity.kt` 仍会提示“随机打卡闹钟已下发”，使用户误以为打卡已被安排，实则系统闹钟完全未设定。
+* **影响范围**: Android 12 及以上版本设备。
 
-| 模块 / 改动项 | 验证结果 | 说明 |
-| :--- | :--- | :--- |
-| **Android 11+ 包可见性适配** | ✅ 已实现 | [AndroidManifest.xml](file:///E:/autoDO/app/src/main/AndroidManifest.xml#L4-L6) 增加了 `<queries>` 标签声明 `com.ss.android.lark`，彻底解决高版本 Android 上 `getLaunchIntentForPackage` 返回 null 的潜在风险。 |
-| **UI / UX 现代 Material 升级** | ✅ 已实现 | [MainActivity.kt](file:///E:/autoDO/app/src/main/java/com/lark/autoclock/MainActivity.kt) 与相关布局全面应用 `Theme_Material_Light_Dialog_Alert` 和精致字体设计，打卡日志展示与配置对话框视觉体验显著提升。 |
-| **应用重命名与架构收洁** | ✅ 已实现 | 全局成功迁移为 `autoDO` 标识与 `ic_launcher` 新设计图标。 |
-| **ADB 一键部署脚本** | ✅ 已实现 | [scripts/setup_device.bat](file:///E:/autoDO/scripts/setup_device.bat) 提供一键配置悬浮窗、电池白名单、通知与无障碍权限的自动化手段，部署体验极大提升。 |
+### 🟡 RCA 2: 时间配置边界与非法输入校验缺失
+* **根因路径**: `MainActivity.kt` 的 `showTimeConfigDialog()` 在用户保存上下班时间段时未强制要求 `结束时间 > 开始时间`。若用户错选倒置时间（如 `18:30 ~ 18:00`），虽有防御兜底，但会导致随机延迟变为 0，防作弊打卡退化为固定时间。
 
 ---
 
-## Key Findings
+## 3. 修复方案与防护建立 (Implementation & Verification)
 
-### 🔴 Critical Issues
-**无**。当前代码不存在任何阻碍程序运行、导致崩溃、资源泄漏或安全隐患的问题。
+### ✅ 1. 增加 `canScheduleExactAlarms` 权限自动检测与弹窗引导
+* 在 [MainActivity.kt](file:///E:/autoDO/app/src/main/java/com/lark/autoclock/MainActivity.kt) 的 `onResume()` 中增加了针对 `canScheduleExactAlarms()` 的检测，若未授权则引导跳转至系统精确闹钟权限设置页。
 
-### 🟡 Important Improvements
-#### 1. 随机时间段设置的边界输入校验
-- **文件**: [MainActivity.kt](file:///E:/autoDO/app/src/main/java/com/lark/autoclock/MainActivity.kt#L211-L266)
-- **分析**: 在 `showTimeConfigDialog()` 中，用户选择时间段时若出现非法操作（如将结束时间设置为早于开始时间），`ClockScheduler` 会通过 `.coerceAtLeast(0)` 防御避免崩溃，但随机偏移量会变为 0，从而退化为固定时间触发。
-- **建议**: 在对话框点击“保存并生效”前增加校验，若 `End <= Start` 则弹出 Toast 友好提示“结束时间必须晚于开始时间”，阻止保存。
+### ✅ 2. 增加随机打卡时间段保存的前置有效性校验
+* 在 [MainActivity.kt](file:///E:/autoDO/app/src/main/java/com/lark/autoclock/MainActivity.kt) 的 `showTimeConfigDialog()` 中增加了 `isTimeValid` 校验，强制要求 `结束时间 > 开始时间`，否则阻止保存并提示。
 
-### 🔵 Minor Suggestions & Nitpicks
-#### 1. ADB 脚本重命名同步建议
-- **文件**: [scripts/setup_device.bat](file:///E:/autoDO/scripts/setup_device.bat)
-- **分析**: 脚本中应用 label 已更新为 `autoDO`，包名依然使用的是 `com.lark.autoclock`（与目前 Kotlin / Manifest applicationId 保持一致，功能完全正常）。如果后续计划做底层的包名重构（Package Renaming），届时只需同步更新该脚本中的包名路径即可。
+### ✅ 3. 一键 ADB 脚本升级
+* 在 [scripts/setup_device.bat](file:///E:/autoDO/scripts/setup_device.bat) 中补全了 `SCHEDULE_EXACT_ALARM` 权限授权指令：
+  `adb shell appops set com.lark.autoclock SCHEDULE_EXACT_ALARM allow`
 
----
-
-## Detailed Feedback
-
-| File | Line | Severity | Issue | Suggestion |
-| :--- | :--- | :--- | :--- | :--- |
-| [AndroidManifest.xml](file:///E:/autoDO/app/src/main/AndroidManifest.xml) | L4-6 | ✅ | 声明 `<queries>` 包含飞书包名 | 非常规范，解决 API 30+ 无法启动第三方 App 的问题。 |
-| [MainActivity.kt](file:///E:/autoDO/app/src/main/java/com/lark/autoclock/MainActivity.kt) | L199, L249 | ✅ | 使用 Material Alert Dialog 样式 | 对话框与日志查看器视觉品质显著提升。 |
-| [setup_device.bat](file:///E:/autoDO/scripts/setup_device.bat) | 全文件 | ✨ | 一键部署脚本 | 大幅降低备用机权限配置门槛。 |
+### ✅ 4. 建立自动化单元测试防线
+* 新建 [HolidayAndScheduleTest.kt](file:///E:/autoDO/app/src/test/java/com/lark/autoclock/HolidayAndScheduleTest.kt) 单元测试用例，保障打卡时间区间与倒置回退逻辑的稳定运行。
 
 ---
 
-## Positive Highlights
-- **高版本 Android 兼容性极佳**：涵盖了 `POST_NOTIFICATIONS` 动态请求、`canDrawOverlays` 悬浮窗判断、`<queries>` 包可见性以及 `setExactAndAllowWhileIdle` 精确闹钟。
-- **三重唤醒与极速打卡流**：结合 `WakeLock` + 全屏 Intent 通知 + 无障碍状态匹配，防风控与稳定性极佳。
-- **工具链完备**：包含自动化 CI 构建工作流（`.github/workflows/build.yml`）与真机一键初始化脚本。
+## 4. 结论 (Status: VERIFIED & FIXED)
+经过本次排查与防护升级，项目在权限前置校验、随机闹钟调度安全性及用户配置合法性方面均达到了极高的鲁棒性。
