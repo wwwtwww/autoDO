@@ -75,8 +75,13 @@ class WakeActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        window.decorView.removeCallbacks(null)
         if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
+            try {
+                wakeLock?.release()
+            } catch (e: Exception) {
+                Log.e("WakeActivity", "释放 WakeLock 异常: ${e.message}")
+            }
         }
     }
 }

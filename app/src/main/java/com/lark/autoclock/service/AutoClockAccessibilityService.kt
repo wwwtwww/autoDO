@@ -57,6 +57,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
         when (intent?.action) {
             "ACTION_START_CLOCK_IN" -> {
                 Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式）===")
+                // 必须先移除之前的挂起任务（防止重入时旧的 timeout 触发）
+                handler.removeCallbacksAndMessages(null)
                 retryCount = 0
                 currentState = ClockState.WAIT_CONFIRM
 
@@ -238,4 +240,11 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
 
     override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
+        currentState = ClockState.IDLE
+        Log.d(TAG, "服务已销毁，已清理所有挂起的 Handler 回调")
+    }
 }

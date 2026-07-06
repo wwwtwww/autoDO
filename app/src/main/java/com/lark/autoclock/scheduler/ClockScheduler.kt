@@ -53,12 +53,14 @@ object ClockScheduler {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         // 读取上班配置，默认 07:30 ~ 08:20
-        val mStart = prefs.getString("morning_start", "07:30")!!.split(":")
-        val mEnd = prefs.getString("morning_end", "08:20")!!.split(":")
-        val mStartHour = mStart[0].toInt()
-        val mStartMin = mStart[1].toInt()
-        val mEndHour = mEnd[0].toInt()
-        val mEndMin = mEnd[1].toInt()
+        val (mStartHour, mStartMin, mEndHour, mEndMin) = try {
+            val s = (prefs.getString("morning_start", "07:30") ?: "07:30").split(":")
+            val e = (prefs.getString("morning_end", "08:20") ?: "08:20").split(":")
+            listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
+        } catch (ex: Exception) {
+            Log.e("AutoClock", "解析上午时间配置失败，回退默认 07:30~08:20: ${ex.message}")
+            listOf(7, 30, 8, 20)
+        }
 
         // 计算上班随机偏移区间 (分钟)
         val mStartTotalMins = mStartHour * 60 + mStartMin
@@ -73,12 +75,14 @@ object ClockScheduler {
         }
 
         // 读取下班配置，默认 18:00 ~ 18:10
-        val aStart = prefs.getString("afternoon_start", "18:00")!!.split(":")
-        val aEnd = prefs.getString("afternoon_end", "18:10")!!.split(":")
-        val aStartHour = aStart[0].toInt()
-        val aStartMin = aStart[1].toInt()
-        val aEndHour = aEnd[0].toInt()
-        val aEndMin = aEnd[1].toInt()
+        val (aStartHour, aStartMin, aEndHour, aEndMin) = try {
+            val s = (prefs.getString("afternoon_start", "18:00") ?: "18:00").split(":")
+            val e = (prefs.getString("afternoon_end", "18:10") ?: "18:10").split(":")
+            listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
+        } catch (ex: Exception) {
+            Log.e("AutoClock", "解析下午时间配置失败，回退默认 18:00~18:10: ${ex.message}")
+            listOf(18, 0, 18, 10)
+        }
 
         val aStartTotalMins = aStartHour * 60 + aStartMin
         val aEndTotalMins = aEndHour * 60 + aEndMin

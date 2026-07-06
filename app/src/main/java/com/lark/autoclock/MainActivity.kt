@@ -50,10 +50,10 @@ class MainActivity : AppCompatActivity() {
 
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java)
-            val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
-            } else {
+            val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            } else {
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT
             }
             val pendingIntent = android.app.PendingIntent.getBroadcast(this, 999, intent, pendingFlags)
 
