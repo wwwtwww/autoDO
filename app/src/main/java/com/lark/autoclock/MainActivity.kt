@@ -159,8 +159,8 @@ class MainActivity : AppCompatActivity() {
         val logs = try {
             logFile.readLines().reversed().joinToString("<br><br>") { line ->
                 when {
-                    line.contains("✅") -> "<font color='#4CAF50'>$line</font>"
-                    line.contains("⚠️") -> "<font color='#F44336'>$line</font>"
+                    line.contains("✅") -> "<font color='#34A853'>$line</font>"
+                    line.contains("⚠️") -> "<font color='#EA4335'>$line</font>"
                     else -> line
                 }
             }
@@ -175,16 +175,29 @@ class MainActivity : AppCompatActivity() {
             Html.fromHtml(logs)
         }
 
-        val scrollView = ScrollView(this)
+        val scrollView = ScrollView(this).apply {
+            setPadding(0, 20, 0, 20)
+        }
         val textView = TextView(this).apply {
             text = spannedLog
-            setPadding(50, 50, 50, 50)
-            textSize = 14f
+            setPadding(50, 20, 50, 40)
+            textSize = 13f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setLineSpacing(10f, 1.2f)
+            setTextColor(android.graphics.Color.parseColor("#3C4043"))
         }
         scrollView.addView(textView)
 
-        AlertDialog.Builder(this)
-            .setTitle("打卡历史记录 (最近在上)")
+        val titleView = TextView(this).apply {
+            text = "历史打卡记录"
+            textSize = 20f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#202124"))
+            setPadding(50, 50, 50, 10)
+        }
+
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
+            .setCustomTitle(titleView)
             .setView(scrollView)
             .setPositiveButton("关闭", null)
             .setNeutralButton("清空记录") { _, _ ->
@@ -225,8 +238,16 @@ class MainActivity : AppCompatActivity() {
         setupTimePicker(tvAStart)
         setupTimePicker(tvAEnd)
 
-        AlertDialog.Builder(this)
-            .setTitle("配置随机打卡时间段")
+        val titleView = TextView(this).apply {
+            text = "配置随机打卡时间段"
+            textSize = 20f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#202124"))
+            setPadding(50, 50, 50, 10)
+        }
+
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
+            .setCustomTitle(titleView)
             .setView(view)
             .setPositiveButton("保存并生效") { _, _ ->
                 prefs.edit()
