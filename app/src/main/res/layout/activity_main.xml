@@ -1,60 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="20dp">
+    android:background="#F8F9FA">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="autoDO 运行中心"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="30dp"/>
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/btn_enable_accessibility"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🛡️ 开启系统无障碍权限 (必须)"
-        android:layout_marginBottom="15dp"/>
+        <!-- 标题区 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="autoDO"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="#202124"
+            android:layout_marginTop="20dp" />
 
-    <Button
-        android:id="@+id/btn_test_unlock"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🧪 模拟测试：唤醒与解锁" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="智能打卡运行中心"
+            android:textSize="16sp"
+            android:textColor="#5F6368"
+            android:layout_marginBottom="40dp"/>
 
-    <Button
-        android:id="@+id/btn_test_clock_in"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🧪 模拟测试：极速打卡流"
-        android:layout_marginTop="15dp"/>
+        <!-- 第一组：核心功能 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="核心服务"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#1A73E8"
+            android:layout_marginBottom="12dp"
+            android:layout_marginStart="4dp"/>
 
-    <Button
-        android:id="@+id/btn_schedule_tasks"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🚀 启动自动打卡守护进程"
-        android:backgroundTint="#FF4CAF50"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="30dp"/>
-        
-    <Button
-        android:id="@+id/btn_view_logs"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="📅 查看历史打卡记录"
-        android:layout_marginTop="15dp"/>
-        
-    <Button
-        android:id="@+id/btn_config_time"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="⚙️ 配置随机打卡时间段"
-        android:layout_marginTop="15dp"/>
-        
-</LinearLayout>
+        <Button
+            android:id="@+id/btn_schedule_tasks"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="🚀  启动自动打卡守护进程"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="16sp"
+            android:backgroundTint="#34A853"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_config_time"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="⚙️  配置随机打卡时间段"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="#202124"
+            app:strokeColor="#DADCE0"
+            app:strokeWidth="1dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_view_logs"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="📅  查看历史打卡记录"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="#202124"
+            app:strokeColor="#DADCE0"
+            app:strokeWidth="1dp"
+            android:layout_marginBottom="32dp"
+            app:cornerRadius="12dp"/>
+
+        <!-- 第二组：系统设置与测试 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="系统与测试"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#1A73E8"
+            android:layout_marginBottom="12dp"
+            android:layout_marginStart="4dp"/>
+
+        <Button
+            android:id="@+id/btn_enable_accessibility"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🛡️  开启系统无障碍权限"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#FEEFC3"
+            android:textColor="#E27200"
+            app:elevation="0dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_test_unlock"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🧪  模拟测试：唤醒与解锁"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#E8F0FE"
+            android:textColor="#1A73E8"
+            app:elevation="0dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_test_clock_in"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🧪  模拟测试：极速打卡流"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#E8F0FE"
+            android:textColor="#1A73E8"
+            app:elevation="0dp"
+            android:layout_marginBottom="20dp"
+            app:cornerRadius="12dp"/>
+
+    </LinearLayout>
+</ScrollView>
