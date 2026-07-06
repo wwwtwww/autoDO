@@ -25,6 +25,12 @@ jobs:
           gradle-version: '8.4'
           cache-disabled: true
 
+      - name: 缓存 Debug 签名文件以保持包签名一致
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-${{ runner.os }}
+
       - name: 编译 APK 并保存日志
         run: gradle assembleDebug --stacktrace --info > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
 
