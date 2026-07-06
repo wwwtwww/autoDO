@@ -235,17 +235,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
         notificationManager.notify(notificationId, notification)
     }
 
-    private fun clickNode(node: AccessibilityNodeInfo): Boolean {
-        var currentNode: AccessibilityNodeInfo? = node
-        while (currentNode != null) {
-            if (currentNode.isClickable) {
-                currentNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                return true
-            }
-            currentNode = currentNode.parent
-        }
-        return false
-    }
+
 
     override fun onInterrupt() {}
 }

@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.content.SharedPreferences
+
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.Html
@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity() {
             if (!pm.isIgnoringBatteryOptimizations(packageName) && !hasPrompted) {
                 prefs.edit().putBoolean(KEY_BATTERY_PROMPTED, true).apply()
                 requestIgnoreBatteryOptimization()
+                return // 串行处理：跳出，等用户返回再检查下一个
             }
             
             // 检查悬浮窗权限（用于后台启动 Activity 唤醒屏幕）
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity() {
                     Uri.parse("package:$packageName")
                 )
                 startActivity(intent)
+                return // 串行处理：跳出，等用户返回再检查下一个
             }
 
             // 检查 Android 12+ 精确闹钟权限
@@ -157,6 +159,7 @@ class MainActivity : AppCompatActivity() {
                             data = Uri.parse("package:$packageName")
                         }
                         startActivity(intent)
+                        return // 串行处理：跳出，等用户返回再检查下一个
                     } catch (e: Exception) {
                         android.util.Log.e("AutoClock", "跳转精确闹钟设置失败: ${e.message}")
                     }
