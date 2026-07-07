@@ -19,12 +19,18 @@ class DailySetupReceiver : BroadcastReceiver() {
                 // 递归注册明天的凌晨任务，实现连续的精确轮巡
                 ClockScheduler.scheduleDailySetup(context)
                 
-                val isWorkday = HolidayHelper.isTodayWorkday()
-                if (isWorkday) {
-                    Log.d("AutoClock", "API反馈今天是工作日，开始下发布置精准随机闹钟")
-                    ClockScheduler.scheduleTodayClockActions(context)
-                } else {
-                    Log.d("AutoClock", "API反馈今天是休息日/节假日，跳过今天的打卡！")
+                when (HolidayHelper.getTodayWorkdayStatus()) {
+                    HolidayHelper.WorkdayStatus.WORKDAY -> {
+                        Log.d("AutoClock", "API反馈今天是工作日，开始下发布置精准随机闹钟")
+                        ClockScheduler.scheduleTodayClockActions(context)
+                    }
+                    HolidayHelper.WorkdayStatus.RESTDAY -> {
+                        Log.d("AutoClock", "API反馈今天是休息日/节假日，跳过今天的打卡！")
+                    }
+                    HolidayHelper.WorkdayStatus.UNKNOWN -> {
+                        Log.w("AutoClock", "无法确认节假日状态，安全降级为工作日并下发打卡闹钟")
+                        ClockScheduler.scheduleTodayClockActions(context)
+                    }
                 }
             } finally {
                 pendingResult.finish()

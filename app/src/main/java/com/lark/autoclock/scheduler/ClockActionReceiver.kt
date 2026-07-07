@@ -75,16 +75,16 @@ class ClockActionReceiver : BroadcastReceiver() {
         notificationManager.notify(notificationId, notificationBuilder.build())
         Log.d("AutoClock", "全屏通知已发送，ID: $notificationId")
 
-        // ======== 第 3 层：直接强行启动 WakeActivity（双保险，防止全屏通知被 ColorOS 拦截）========
+        // ======== 第 3 层：best-effort 直接启动（Android 10+ / 部分 ROM 可能拦截，不能作为成功依据）========
         try {
             val directIntent = Intent(context, WakeActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra("CHAIN_ACTION", "ACTION_START_CLOCK_IN")
             }
             context.startActivity(directIntent)
-            Log.d("AutoClock", "直接启动 WakeActivity 成功")
+            Log.d("AutoClock", "已尝试直接启动 WakeActivity（best-effort，实际可能被系统拦截）")
         } catch (e: Exception) {
-            Log.e("AutoClock", "直接启动 WakeActivity 失败（可能被系统拦截）: ${e.message}")
+            Log.e("AutoClock", "直接启动 WakeActivity 被拦截或失败，仅依赖全屏通知路径: ${e.message}")
         }
     }
 }

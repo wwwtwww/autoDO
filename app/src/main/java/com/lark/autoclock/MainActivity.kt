@@ -7,6 +7,8 @@ import android.os.Build
 import android.os.Bundle
 import kotlinx.coroutines.*
 
+import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.Html
@@ -27,6 +29,8 @@ import com.lark.autoclock.utils.HolidayHelper
 class MainActivity : AppCompatActivity() {
     private val PREFS_NAME = "AutoClockPrefs"
     private val KEY_BATTERY_PROMPTED = "battery_prompted"
+    private val KEY_LOCKSCREEN_PROMPTED = "lockscreen_prompted"
+    private val KEY_FULL_SCREEN_PROMPTED = "full_screen_prompted"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,6 +108,44 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 安全锁屏无法被普通应用自动绕过，必须提前提示用户。
+     */
+    private fun showSecureLockscreenWarning() {
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
+            .setTitle("锁屏密码会阻止自动打卡")
+            .setMessage("当前设备启用了 PIN、图案、指纹、人脸或其他安全锁屏。Android 不允许应用自动绕过这些验证。若要在锁屏状态自动打卡，请将测试手机锁屏方式改为无密码或滑动解锁。")
+            .setPositiveButton("去锁屏设置") { _, _ ->
+                try {
+                    startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                } catch (e: Exception) {
+                    Toast.makeText(this, "请手动打开系统锁屏设置", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("我知道了", null)
+            .show()
+    }
+
+    /**
+     * Android 14+ 可能默认关闭普通应用的全屏通知能力。
+     */
+    private fun requestFullScreenIntentPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Toast.makeText(this, "请允许全屏通知，否则锁屏时可能无法唤醒打卡界面", Toast.LENGTH_LONG).show()
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        }
+    }
+
+    /**
      * 请求关闭电池优化（Android 6.0+），在 OPPO/ColorOS 上极其关键
      */
     private fun requestIgnoreBatteryOptimization() {
@@ -132,6 +174,24 @@ class MainActivity : AppCompatActivity() {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val hasPrompted = prefs.getBoolean(KEY_BATTERY_PROMPTED, false)
+            val hasLockscreenPrompted = prefs.getBoolean(KEY_LOCKSCREEN_PROMPTED, false)
+            val hasFullScreenPrompted = prefs.getBoolean(KEY_FULL_SCREEN_PROMPTED, false)
+
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            if (keyguardManager.isKeyguardSecure && !hasLockscreenPrompted) {
+                prefs.edit().putBoolean(KEY_LOCKSCREEN_PROMPTED, true).apply()
+                showSecureLockscreenWarning()
+                return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (!notificationManager.canUseFullScreenIntent() && !hasFullScreenPrompted) {
+                    prefs.edit().putBoolean(KEY_FULL_SCREEN_PROMPTED, true).apply()
+                    requestFullScreenIntentPermission()
+                    return
+                }
+            }
 
             if (!pm.isIgnoringBatteryOptimizations(packageName) && !hasPrompted) {
                 prefs.edit().putBoolean(KEY_BATTERY_PROMPTED, true).apply()

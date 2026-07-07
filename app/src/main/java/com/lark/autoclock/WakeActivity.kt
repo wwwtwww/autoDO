@@ -14,6 +14,7 @@ import com.lark.autoclock.service.AutoClockAccessibilityService
 class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var keyguardDismissFailed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,10 +31,12 @@ class WakeActivity : Activity() {
                     Log.d("WakeActivity", "锁屏已成功消除")
                 }
                 override fun onDismissError() {
-                    Log.e("WakeActivity", "锁屏消除失败")
+                    keyguardDismissFailed = true
+                    Log.e("WakeActivity", "锁屏消除失败，跳过自动打卡")
                 }
                 override fun onDismissCancelled() {
-                    Log.w("WakeActivity", "锁屏消除被取消")
+                    keyguardDismissFailed = true
+                    Log.w("WakeActivity", "锁屏消除被取消，跳过自动打卡")
                 }
             })
         }
@@ -60,6 +63,13 @@ class WakeActivity : Activity() {
         Log.d("WakeActivity", "链式动作: $chainAction")
 
         mainHandler.postDelayed({
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            if (keyguardDismissFailed || (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure)) {
+                Log.w("WakeActivity", "仍处于安全锁屏或解锁失败，终止本次自动打卡")
+                releaseLocksAndFinish()
+                return@postDelayed
+            }
+
             if (chainAction == "ACTION_START_CLOCK_IN") {
                 Log.d("WakeActivity", "正在触发飞书打卡流...")
                 val serviceIntent = Intent(this, AutoClockAccessibilityService::class.java)
@@ -68,11 +78,21 @@ class WakeActivity : Activity() {
             }
             // 延迟释放 WakeLock 和关闭 Activity
             mainHandler.postDelayed({
-                com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
-                if (wakeLock?.isHeld == true) wakeLock?.release()
-                finish()
+                releaseLocksAndFinish()
             }, 3000)
         }, 2000) // 给系统足够时间完成亮屏和解锁动画
+    }
+
+    private fun releaseLocksAndFinish() {
+        com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
+        if (wakeLock?.isHeld == true) {
+            try {
+                wakeLock?.release()
+            } catch (e: Exception) {
+                Log.e("WakeActivity", "释放 WakeLock 异常: ${e.message}")
+            }
+        }
+        finish()
     }
 
     override fun onDestroy() {
