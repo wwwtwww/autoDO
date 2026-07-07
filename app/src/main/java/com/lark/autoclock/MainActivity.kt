@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import kotlinx.coroutines.*
 
 import android.os.PowerManager
 import android.provider.Settings
@@ -77,18 +78,18 @@ class MainActivity : AppCompatActivity() {
             ClockScheduler.scheduleDailySetup(this)
             Toast.makeText(this, "守护进程已启动，请将手机放置在充电座上即可，无需其他操作。", Toast.LENGTH_LONG).show()
 
-            Thread {
+            CoroutineScope(Dispatchers.IO).launch {
                 if (HolidayHelper.isTodayWorkday()) {
-                    runOnUiThread {
+                    withContext(Dispatchers.Main) {
                         ClockScheduler.scheduleTodayClockActions(this@MainActivity)
                         Toast.makeText(this@MainActivity, "今天为工作日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
                     }
                 } else {
-                    runOnUiThread {
+                    withContext(Dispatchers.Main) {
                         Toast.makeText(this@MainActivity, "节假日判定：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
                     }
                 }
-            }.start()
+            }
         }
 
         // 5. 查看打卡日志
@@ -175,56 +176,60 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val logs = try {
-            logFile.readLines().reversed().joinToString("<br><br>") { line ->
-                when {
-                    line.contains("✅") -> "<font color='#34A853'>$line</font>"
-                    line.contains("⚠️") -> "<font color='#EA4335'>$line</font>"
-                    else -> line
+        CoroutineScope(Dispatchers.IO).launch {
+            val logs = try {
+                logFile.readLines().takeLast(100).reversed().joinToString("<br><br>") { line ->
+                    when {
+                        line.contains("✅") -> "<font color='#34A853'>$line</font>"
+                        line.contains("⚠️") -> "<font color='#EA4335'>$line</font>"
+                        else -> line
+                    }
                 }
+            } catch (e: Exception) {
+                "读取日志失败: ${e.message}"
             }
-        } catch (e: Exception) {
-            "读取日志失败: ${e.message}"
-        }
 
-        val spannedLog: Spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            Html.fromHtml(logs, Html.FROM_HTML_MODE_COMPACT)
-        } else {
-            @Suppress("DEPRECATION")
-            Html.fromHtml(logs)
-        }
-
-        val scrollView = ScrollView(this).apply {
-            setPadding(0, 20, 0, 20)
-        }
-        val textView = TextView(this).apply {
-            text = spannedLog
-            setPadding(50, 20, 50, 40)
-            textSize = 13f
-            typeface = android.graphics.Typeface.MONOSPACE
-            setLineSpacing(10f, 1.2f)
-            setTextColor(android.graphics.Color.parseColor("#3C4043"))
-        }
-        scrollView.addView(textView)
-
-        val titleView = TextView(this).apply {
-            text = "历史打卡记录"
-            textSize = 20f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(android.graphics.Color.parseColor("#202124"))
-            setPadding(50, 50, 50, 10)
-        }
-
-        AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
-            .setCustomTitle(titleView)
-            .setView(scrollView)
-            .setPositiveButton("关闭", null)
-            .setNeutralButton("清空记录") { _, _ ->
-                if (logFile.delete()) {
-                    Toast.makeText(this, "记录已清空", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.Main) {
+                val spannedLog: Spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Html.fromHtml(logs, Html.FROM_HTML_MODE_COMPACT)
+                } else {
+                    @Suppress("DEPRECATION")
+                    Html.fromHtml(logs)
                 }
+
+                val scrollView = ScrollView(this@MainActivity).apply {
+                    setPadding(0, 20, 0, 20)
+                }
+                val textView = TextView(this@MainActivity).apply {
+                    text = spannedLog
+                    setPadding(50, 20, 50, 40)
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.MONOSPACE
+                    setLineSpacing(10f, 1.2f)
+                    setTextColor(android.graphics.Color.parseColor("#3C4043"))
+                }
+                scrollView.addView(textView)
+
+                val titleView = TextView(this@MainActivity).apply {
+                    text = "历史打卡记录"
+                    textSize = 20f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setTextColor(android.graphics.Color.parseColor("#202124"))
+                    setPadding(50, 50, 50, 10)
+                }
+
+                AlertDialog.Builder(this@MainActivity, android.R.style.Theme_Material_Light_Dialog_Alert)
+                    .setCustomTitle(titleView)
+                    .setView(scrollView)
+                    .setPositiveButton("关闭", null)
+                    .setNeutralButton("清空记录") { _, _ ->
+                        if (logFile.delete()) {
+                            Toast.makeText(this@MainActivity, "记录已清空", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .show()
             }
-            .show()
+        }
     }
 
     private fun showTimeConfigDialog() {

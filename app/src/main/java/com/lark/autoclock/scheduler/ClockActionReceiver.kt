@@ -12,7 +12,16 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lark.autoclock.WakeActivity
 
-class ClockActionReceiver : BroadcastReceiver() {
+    companion object {
+        var staticWakeLock: PowerManager.WakeLock? = null
+        fun releaseWakeLock() {
+            if (staticWakeLock?.isHeld == true) {
+                try { staticWakeLock?.release() } catch (e: Exception) {}
+            }
+            staticWakeLock = null
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！===")
 
@@ -25,7 +34,8 @@ class ClockActionReceiver : BroadcastReceiver() {
             PowerManager.ON_AFTER_RELEASE,
             "autoDO::FullWakeLock"
         )
-        wakeLock.acquire(60 * 1000L) // 持有 60 秒
+        wakeLock.acquire(60 * 1000L) // 持有 60 秒兜底
+        staticWakeLock = wakeLock
         Log.d("AutoClock", "WakeLock 已获取，屏幕应该已被点亮")
 
         // ======== 第 2 层：发送全屏通知（用于穿透锁屏启动 WakeActivity）========
@@ -44,10 +54,10 @@ class ClockActionReceiver : BroadcastReceiver() {
             putExtra("CHAIN_ACTION", "ACTION_START_CLOCK_IN")
         }
 
-        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        } else {
+        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(context, 0, wakeIntent, pendingFlags)
 

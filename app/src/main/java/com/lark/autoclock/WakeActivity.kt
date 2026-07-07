@@ -13,6 +13,7 @@ import com.lark.autoclock.service.AutoClockAccessibilityService
 
 class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +59,7 @@ class WakeActivity : Activity() {
         val chainAction = intent.getStringExtra("CHAIN_ACTION")
         Log.d("WakeActivity", "链式动作: $chainAction")
 
-        window.decorView.postDelayed({
+        mainHandler.postDelayed({
             if (chainAction == "ACTION_START_CLOCK_IN") {
                 Log.d("WakeActivity", "正在触发飞书打卡流...")
                 val serviceIntent = Intent(this, AutoClockAccessibilityService::class.java)
@@ -66,7 +67,8 @@ class WakeActivity : Activity() {
                 startService(serviceIntent)
             }
             // 延迟释放 WakeLock 和关闭 Activity
-            window.decorView.postDelayed({
+            mainHandler.postDelayed({
+                com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
                 if (wakeLock?.isHeld == true) wakeLock?.release()
                 finish()
             }, 3000)
@@ -75,7 +77,8 @@ class WakeActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        window.decorView.removeCallbacks(null)
+        mainHandler.removeCallbacksAndMessages(null)
+        com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
         if (wakeLock?.isHeld == true) {
             try {
                 wakeLock?.release()
