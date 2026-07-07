@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lark.autoclock.WakeActivity
 
+class ClockActionReceiver : BroadcastReceiver() {
     companion object {
         var staticWakeLock: PowerManager.WakeLock? = null
         fun releaseWakeLock() {

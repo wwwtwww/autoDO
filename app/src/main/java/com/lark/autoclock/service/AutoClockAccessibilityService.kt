@@ -120,6 +120,19 @@ class AutoClockAccessibilityService : AccessibilityService() {
         retryCount++
         if (retryCount > MAX_RETRY) return // 超时由 handler 处理
 
+        // 收集当前界面所有文字（用于后续多重判定）
+        val allText = collectAllText(rootNode)
+
+        // === 防误判守卫 ===
+        // 如果界面上同时出现了聊天特征关键词（输入框、发送按钮、消息列表），
+        // 说明用户当前停留在飞书聊天页面而非打卡页面，跳过本次检测。
+        val chatIndicators = listOf("输入消息", "发送", "消息记录", "聊天记录", "回复")
+        val isChatPage = chatIndicators.count { allText.contains(it) } >= 2
+        if (isChatPage) {
+            Log.d(TAG, "检测到聊天页面特征，跳过本轮关键词扫描以避免误判")
+            return
+        }
+
         // 扫描飞书界面上是否出现了打卡成功的关键词
         for (keyword in CLOCK_SUCCESS_KEYWORDS) {
             val nodes = rootNode.findAccessibilityNodeInfosByText(keyword)
@@ -136,7 +149,6 @@ class AutoClockAccessibilityService : AccessibilityService() {
         }
 
         // 同时尝试深度搜索
-        val allText = collectAllText(rootNode)
         for (keyword in CLOCK_SUCCESS_KEYWORDS) {
             if (allText.contains(keyword)) {
                 Log.d(TAG, "=== 深度搜索检测到极速打卡成功标志: '$keyword' ===")
