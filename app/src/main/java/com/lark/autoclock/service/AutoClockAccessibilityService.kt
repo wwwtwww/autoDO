@@ -40,10 +40,9 @@ class AutoClockAccessibilityService : AccessibilityService() {
         const val TAG = "AutoClock"
         const val NOTIFICATION_CHANNEL_ID = "autoclock_result"
 
-        // 极速打卡成功后，飞书界面上可能出现的关键词
+        // 极速打卡成功后，飞书打卡界面上明确无歧义的成功标志
         val CLOCK_SUCCESS_KEYWORDS = listOf(
-            "打卡成功", "已打卡", "上班·已打卡", "下班·已打卡",
-            "更新打卡", "已于", "打卡时间"
+            "打卡成功", "上班·已打卡", "下班·已打卡", "更新打卡"
         )
     }
 
