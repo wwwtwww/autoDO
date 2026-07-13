@@ -97,12 +97,39 @@ object ClockScheduler {
         if (clockInCal.timeInMillis > System.currentTimeMillis()) {
             setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis)
             Log.d("AutoClock", "今天上班打卡已随机安排在: ${clockInCal.time}")
+        } else {
+            // 时序滞后补偿逻辑：如果闹钟时间已经过去，但当前仍处于上午（11:30前），说明凌晨任务被系统推迟触发了，立即执行补卡
+            val limitCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 11)
+                set(Calendar.MINUTE, 30)
+                set(Calendar.SECOND, 0)
+            }
+            if (System.currentTimeMillis() < limitCal.timeInMillis) {
+                Log.w("AutoClock", "上班打卡随机时间已过，但在11:30之前，触发即时补打卡流程")
+                triggerImmediateClock(context)
+            }
         }
 
         if (clockOutCal.timeInMillis > System.currentTimeMillis()) {
             setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis)
             Log.d("AutoClock", "今天下班打卡已随机安排在: ${clockOutCal.time}")
+        } else {
+            // 时序滞后补偿逻辑：如果下班闹钟时间已过去，但当前仍在深夜（22:00前），立即执行补卡
+            val limitCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 22)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }
+            if (System.currentTimeMillis() < limitCal.timeInMillis) {
+                Log.w("AutoClock", "下班打卡随机时间已过，但在22:00之前，触发即时补打卡流程")
+                triggerImmediateClock(context)
+            }
         }
+    }
+
+    private fun triggerImmediateClock(context: Context) {
+        val intent = Intent(context, ClockActionReceiver::class.java)
+        context.sendBroadcast(intent)
     }
 
     private fun setExactAlarm(context: Context, alarmManager: AlarmManager, requestCode: Int, timeInMillis: Long) {
