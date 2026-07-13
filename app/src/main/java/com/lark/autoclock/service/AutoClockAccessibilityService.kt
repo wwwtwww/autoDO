@@ -9,6 +9,11 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -33,6 +38,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private val MAX_RETRY = 30 // 约 30 秒超时
     private var timeoutRunnable: Runnable? = null
     private val logLock = Any()
+    // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
@@ -199,25 +206,29 @@ class AutoClockAccessibilityService : AccessibilityService() {
      * 日志路径: /data/data/com.lark.autoclock/files/clock_log.txt
      */
     private fun recordClockResult(confirmed: Boolean, detail: String) {
-        synchronized(logLock) {
-            try {
-                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val timestamp = sdf.format(Date())
-                val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
-                val logLine = "[$timestamp] $status | $detail\n"
+        // 在主线程构造日志内容（保证时间戳精确），但将磁盘 IO 异步化到后台线程
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val timestamp = sdf.format(Date())
+        val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
+        val logLine = "[$timestamp] $status | $detail\n"
+        Log.d(TAG, "打卡日志已生成: $logLine")
 
-                val logFile = File(applicationContext.filesDir, "clock_log.txt")
-                logFile.appendText(logLine)
+        ioScope.launch {
+            synchronized(logLock) {
+                try {
+                    val logFile = File(applicationContext.filesDir, "clock_log.txt")
+                    logFile.appendText(logLine)
 
-                // 限制文件行数，保留最近 200 行防止无限膨胀（降频：超过 250 行才裁剪）
-                val lines = logFile.readLines()
-                if (lines.size > 250) {
-                    logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+                    // 限制文件行数，保留最近 200 行防止无限膨胀（降频：超过 250 行才裁剪）
+                    val lines = logFile.readLines()
+                    if (lines.size > 250) {
+                        logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+                    }
+
+                    Log.d(TAG, "打卡日志已写入磁盘")
+                } catch (e: Exception) {
+                    Log.e(TAG, "写入打卡日志失败: ${e.message}")
                 }
-
-                Log.d(TAG, "打卡日志已写入: $logLine")
-            } catch (e: Exception) {
-                Log.e(TAG, "写入打卡日志失败: ${e.message}")
             }
         }
     }
@@ -227,7 +238,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        ioScope.cancel() // 取消所有挂起的 IO 协程，防止服务销毁后写入
         currentState = ClockState.IDLE
-        Log.d(TAG, "服务已销毁，已清理所有挂起的 Handler 回调")
+        Log.d(TAG, "服务已销毁，已清理所有挂起的 Handler 回调和 IO 协程")
     }
 }
