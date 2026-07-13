@@ -43,12 +43,6 @@ class AutoClockAccessibilityService : AccessibilityService() {
         private const val MIN_SCAN_INTERVAL_MS = 500L
     }
 
-    private fun showToast(message: String) {
-        handler.post {
-            Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             "ACTION_START_CLOCK_IN" -> {
@@ -59,7 +53,6 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 lastScanAt = 0L
                 currentState = ClockState.WAIT_CONFIRM
 
-                showToast("正在启动飞书，等待极速打卡...")
                 launchFeishu()
 
                 // 超时机制：15 秒后如果还没确认到打卡结果
@@ -68,9 +61,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
                         Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
                         // 虽然没检测到确认文字，但极速打卡大概率已经成功
                         val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
-                        showToast(msg)
                         recordClockResult(confirmed = false, detail = msg)
-                        sendResultNotification(confirmed = false)
                         goHomeAndReset()
                     }
                 }, 15000)
@@ -89,20 +80,15 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 startActivity(launchIntent)
                 Log.d(TAG, "成功拉起飞书")
-                showToast("飞书已启动，正在等待极速打卡确认...")
             } else {
                 Log.e(TAG, "未找到飞书包: $FEISHU_PACKAGE_NAME")
-                showToast("未找到飞书 App，打卡中止")
                 recordClockResult(confirmed = false, detail = "未找到飞书 App")
-                sendResultNotification(confirmed = false, detail = "未找到飞书 App")
                 lastScanAt = 0L
                 currentState = ClockState.IDLE
             }
         } catch (e: Exception) {
             Log.e(TAG, "拉起飞书异常: ${e.message}")
-            showToast("启动飞书异常: ${e.message}")
             recordClockResult(confirmed = false, detail = "启动飞书异常: ${e.message}")
-            sendResultNotification(confirmed = false, detail = "启动飞书异常")
             lastScanAt = 0L
             currentState = ClockState.IDLE
         }
@@ -131,9 +117,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
         if (matchedText != null && confirmed) {
             Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
             val msg = "极速打卡成功！检测到: $matchedText"
-            showToast("✅ $msg")
             recordClockResult(confirmed = true, detail = msg)
-            sendResultNotification(confirmed = true, detail = matchedText)
+            handler.removeCallbacksAndMessages(null) // 主动取消 15 秒超时检测
             goHomeAndReset()
             return
         }
@@ -196,6 +181,14 @@ class AutoClockAccessibilityService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "返回桌面动作异常: ${e.message}")
             } finally {
+                // 打卡结束归位，精准清除打卡唤醒通知
+                try {
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(com.lark.autoclock.scheduler.ClockActionReceiver.WAKE_NOTIFICATION_ID)
+                } catch (e: Exception) {
+                    Log.e(TAG, "服务中清除唤醒通知异常: ${e.message}")
+                }
+
                 currentState = ClockState.IDLE
                 lastScanAt = 0L
                 Log.d(TAG, "流程结束，状态已重置")
@@ -216,52 +209,18 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
             val logFile = File(applicationContext.filesDir, "clock_log.txt")
             logFile.appendText(logLine)
+            
+            // 限制文件行数，保留最近 200 行防止无限膨胀
+            val lines = logFile.readLines()
+            if (lines.size > 200) {
+                logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+            }
+            
             Log.d(TAG, "打卡日志已写入: $logLine")
         } catch (e: Exception) {
             Log.e(TAG, "写入打卡日志失败: ${e.message}")
         }
     }
-
-    /**
-     * 发送一条常驻通知，显示打卡结果
-     */
-    private fun sendResultNotification(confirmed: Boolean, detail: String = "") {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "打卡结果通知",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "显示自动打卡的执行结果"
-            }
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        val timeStr = sdf.format(Date())
-        val title = if (confirmed) "✅ 打卡成功" else "⚠️ 打卡状态待确认"
-        val content = if (confirmed) {
-            "[$timeStr] 极速打卡已确认成功 | $detail"
-        } else {
-            "[$timeStr] 飞书已启动，请手动确认打卡结果"
-        }
-
-        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-
-        val notificationId = System.currentTimeMillis().toInt()
-        notificationManager.notify(notificationId, notification)
-    }
-
-
 
     override fun onInterrupt() {}
 

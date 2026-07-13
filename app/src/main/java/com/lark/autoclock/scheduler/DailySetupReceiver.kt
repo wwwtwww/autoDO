@@ -8,6 +8,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.lark.autoclock.utils.HolidayHelper
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
 
 class DailySetupReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -26,9 +30,11 @@ class DailySetupReceiver : BroadcastReceiver() {
                     val isWeekend = dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
                     status = if (isWeekend) {
                         Log.w("AutoClock", "无法确认节假日状态（网络异常），周末默认降级为休息日")
+                        sendFallbackNotification(context, "周末默认休息（API异常）")
                         HolidayHelper.WorkdayStatus.RESTDAY
                     } else {
                         Log.w("AutoClock", "无法确认节假日状态（网络异常），工作日默认降级为上班日并下发闹钟")
+                        sendFallbackNotification(context, "工作日默认打卡（API异常）")
                         HolidayHelper.WorkdayStatus.WORKDAY
                     }
                 }
@@ -47,5 +53,24 @@ class DailySetupReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }
+    }
+
+    private fun sendFallbackNotification(context: Context, content: String) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "autoclock_fallback"
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "打卡降级通知", NotificationManager.IMPORTANCE_DEFAULT)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("autoDO 节假日API异常")
+            .setContentText(content)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 }

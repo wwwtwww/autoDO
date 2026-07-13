@@ -341,9 +341,13 @@ class MainActivity : AppCompatActivity() {
 
                 val isTimeValid = { s: String, e: String ->
                     try {
-                        val (sh, sm) = s.split(":").map { it.toInt() }
-                        val (eh, em) = e.split(":").map { it.toInt() }
-                        (eh * 60 + em) > (sh * 60 + sm)
+                        val regex = Regex("^([01]\\d|2[0-3]):([0-5]\\d)$")
+                        if (!regex.matches(s) || !regex.matches(e)) false
+                        else {
+                            val (sh, sm) = s.split(":").map { it.toInt() }
+                            val (eh, em) = e.split(":").map { it.toInt() }
+                            (eh * 60 + em) > (sh * 60 + sm)
+                        }
                     } catch (ex: Exception) {
                         false
                     }

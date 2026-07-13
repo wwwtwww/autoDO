@@ -14,6 +14,7 @@ import com.lark.autoclock.WakeActivity
 
 class ClockActionReceiver : BroadcastReceiver() {
     companion object {
+        const val WAKE_NOTIFICATION_ID = 10001
         var staticWakeLock: PowerManager.WakeLock? = null
         fun releaseWakeLock() {
             if (staticWakeLock?.isHeld == true) {
@@ -71,9 +72,8 @@ class ClockActionReceiver : BroadcastReceiver() {
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setAutoCancel(true)
 
-        val notificationId = System.currentTimeMillis().toInt()
-        notificationManager.notify(notificationId, notificationBuilder.build())
-        Log.d("AutoClock", "全屏通知已发送，ID: $notificationId")
+        notificationManager.notify(WAKE_NOTIFICATION_ID, notificationBuilder.build())
+        Log.d("AutoClock", "全屏通知已发送，ID: $WAKE_NOTIFICATION_ID")
 
         // ======== 第 3 层：best-effort 直接启动（Android 10+ / 部分 ROM 可能拦截，不能作为成功依据）========
         try {

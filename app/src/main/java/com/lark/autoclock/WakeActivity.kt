@@ -74,7 +74,11 @@ class WakeActivity : Activity() {
                 Log.d("WakeActivity", "正在触发飞书打卡流...")
                 val serviceIntent = Intent(this, AutoClockAccessibilityService::class.java)
                 serviceIntent.action = "ACTION_START_CLOCK_IN"
-                startService(serviceIntent)
+                try {
+                    startService(serviceIntent)
+                } catch (e: Exception) {
+                    Log.e("WakeActivity", "后台启动无障碍服务被拦截或异常: ${e.message}")
+                }
             }
             // 延迟释放 WakeLock 和关闭 Activity
             mainHandler.postDelayed({
@@ -92,6 +96,15 @@ class WakeActivity : Activity() {
                 Log.e("WakeActivity", "释放 WakeLock 异常: ${e.message}")
             }
         }
+        
+        // 精准清除打卡唤醒通知，防止常驻通知栏
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(com.lark.autoclock.scheduler.ClockActionReceiver.WAKE_NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.e("WakeActivity", "清除唤醒通知失败: ${e.message}")
+        }
+        
         finish()
     }
 
