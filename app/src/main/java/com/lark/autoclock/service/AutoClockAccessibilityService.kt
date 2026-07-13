@@ -1,18 +1,14 @@
 package com.lark.autoclock.service
 
 import android.accessibilityservice.AccessibilityService
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.widget.Toast
-import androidx.core.app.NotificationCompat
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,7 +35,6 @@ class AutoClockAccessibilityService : AccessibilityService() {
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
         const val TAG = "AutoClock"
-        const val NOTIFICATION_CHANNEL_ID = "autoclock_result"
         private const val MIN_SCAN_INTERVAL_MS = 500L
     }
 
