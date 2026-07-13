@@ -43,4 +43,32 @@ class HolidayHelperTest {
             HolidayHelper.parseWorkdayStatus("not json")
         )
     }
+
+    @Test
+    fun `resolve status on network failure matches calendar day of week`() {
+        // 周日
+        assertEquals(
+            HolidayHelper.WorkdayStatus.RESTDAY,
+            HolidayHelper.resolveStatusOnNetworkFailure(java.util.Calendar.SUNDAY)
+        )
+        // 周六
+        assertEquals(
+            HolidayHelper.WorkdayStatus.RESTDAY,
+            HolidayHelper.resolveStatusOnNetworkFailure(java.util.Calendar.SATURDAY)
+        )
+        // 周一至周五
+        val weekdays = listOf(
+            java.util.Calendar.MONDAY,
+            java.util.Calendar.TUESDAY,
+            java.util.Calendar.WEDNESDAY,
+            java.util.Calendar.THURSDAY,
+            java.util.Calendar.FRIDAY
+        )
+        for (day in weekdays) {
+            assertEquals(
+                HolidayHelper.WorkdayStatus.WORKDAY,
+                HolidayHelper.resolveStatusOnNetworkFailure(day)
+            )
+        }
+    }
 }

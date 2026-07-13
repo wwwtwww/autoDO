@@ -64,4 +64,9 @@ object HolidayHelper {
             connection?.disconnect()
         }
     }
+
+    fun resolveStatusOnNetworkFailure(dayOfWeek: Int): WorkdayStatus {
+        val isWeekend = dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
+        return if (isWeekend) WorkdayStatus.RESTDAY else WorkdayStatus.WORKDAY
+    }
 }

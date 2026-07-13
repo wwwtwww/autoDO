@@ -27,15 +27,13 @@ class DailySetupReceiver : BroadcastReceiver() {
                 if (status == HolidayHelper.WorkdayStatus.UNKNOWN) {
                     val calendar = java.util.Calendar.getInstance()
                     val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
-                    val isWeekend = dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
-                    status = if (isWeekend) {
+                    status = HolidayHelper.resolveStatusOnNetworkFailure(dayOfWeek)
+                    if (status == HolidayHelper.WorkdayStatus.RESTDAY) {
                         Log.w("AutoClock", "无法确认节假日状态（网络异常），周末默认降级为休息日")
                         sendFallbackNotification(context, "周末默认休息（API异常）")
-                        HolidayHelper.WorkdayStatus.RESTDAY
                     } else {
                         Log.w("AutoClock", "无法确认节假日状态（网络异常），工作日默认降级为上班日并下发闹钟")
                         sendFallbackNotification(context, "工作日默认打卡（API异常）")
-                        HolidayHelper.WorkdayStatus.WORKDAY
                     }
                 }
                 
