@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import kotlinx.coroutines.*
+import androidx.lifecycle.lifecycleScope
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
@@ -82,16 +83,18 @@ class MainActivity : AppCompatActivity() {
             ClockScheduler.scheduleDailySetup(this)
             Toast.makeText(this, "守护进程已启动，请将手机放置在充电座上即可，无需其他操作。", Toast.LENGTH_LONG).show()
 
-            CoroutineScope(Dispatchers.IO).launch {
-                if (HolidayHelper.isTodayWorkday()) {
-                    withContext(Dispatchers.Main) {
-                        ClockScheduler.scheduleTodayClockActions(this@MainActivity)
-                        Toast.makeText(this@MainActivity, "今天为工作日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
-                    }
+            lifecycleScope.launch {
+                val status = withContext(Dispatchers.IO) { HolidayHelper.getTodayWorkdayStatus() }
+                val resolvedStatus = if (status == HolidayHelper.WorkdayStatus.UNKNOWN) {
+                    val dayOfWeek = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+                    HolidayHelper.resolveStatusOnNetworkFailure(dayOfWeek)
+                } else status
+
+                if (resolvedStatus == HolidayHelper.WorkdayStatus.WORKDAY) {
+                    ClockScheduler.scheduleTodayClockActions(this@MainActivity)
+                    Toast.makeText(this@MainActivity, "今天为工作日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
                 } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "节假日判定：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
-                    }
+                    Toast.makeText(this@MainActivity, "节假日判定：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -236,7 +239,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val logs = try {
                 logFile.readLines().takeLast(100).reversed().joinToString("<br><br>") { line ->
                     when {

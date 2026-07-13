@@ -14,6 +14,11 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 
 class DailySetupReceiver : BroadcastReceiver() {
+
+    companion object {
+        private const val FALLBACK_NOTIFICATION_ID = 10002
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("AutoClock", "触发凌晨 00:30 定时任务：正在判断节假日...")
         
@@ -47,6 +52,15 @@ class DailySetupReceiver : BroadcastReceiver() {
                     }
                     else -> {}
                 }
+            } catch (e: Exception) {
+                Log.e("AutoClock", "凌晨调度任务异常: ${e.message}", e)
+                // 安全降级：即使发生异常也尝试下发打卡闹钟，宁可误打不可漏打
+                try {
+                    ClockScheduler.scheduleTodayClockActions(context)
+                    sendFallbackNotification(context, "调度异常已降级补发打卡闹钟")
+                } catch (fallbackEx: Exception) {
+                    Log.e("AutoClock", "降级补发打卡闹钟也失败: ${fallbackEx.message}", fallbackEx)
+                }
             } finally {
                 pendingResult.finish()
             }
@@ -69,6 +83,7 @@ class DailySetupReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        // 使用固定 ID，新通知覆盖旧通知，避免连续断网时通知栏堆积
+        notificationManager.notify(FALLBACK_NOTIFICATION_ID, notification)
     }
 }

@@ -31,6 +31,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private var retryCount = 0
     private var lastScanAt = 0L
     private val MAX_RETRY = 30 // 约 30 秒超时
+    private var timeoutRunnable: Runnable? = null
+    private val logLock = Any()
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
@@ -42,8 +44,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
         when (intent?.action) {
             "ACTION_START_CLOCK_IN" -> {
                 Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式）===")
-                // 必须先移除之前的挂起任务（防止重入时旧的 timeout 触发）
-                handler.removeCallbacksAndMessages(null)
+                // 精准移除上一次的超时回调（不影响 goHomeAndReset 中的延迟回调）
+                timeoutRunnable?.let { handler.removeCallbacks(it) }
                 retryCount = 0
                 lastScanAt = 0L
                 currentState = ClockState.WAIT_CONFIRM
@@ -51,7 +53,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 launchFeishu()
 
                 // 超时机制：15 秒后如果还没确认到打卡结果
-                handler.postDelayed({
+                timeoutRunnable = Runnable {
                     if (currentState == ClockState.WAIT_CONFIRM) {
                         Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
                         // 虽然没检测到确认文字，但极速打卡大概率已经成功
@@ -59,7 +61,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
                         recordClockResult(confirmed = false, detail = msg)
                         goHomeAndReset()
                     }
-                }, 15000)
+                }
+                handler.postDelayed(timeoutRunnable!!, 15000)
             }
         }
         return super.onStartCommand(intent, flags, startId)
@@ -113,7 +116,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
             Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
             val msg = "极速打卡成功！检测到: $matchedText"
             recordClockResult(confirmed = true, detail = msg)
-            handler.removeCallbacksAndMessages(null) // 主动取消 15 秒超时检测
+            timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消 15 秒超时检测
             goHomeAndReset()
             return
         }
@@ -196,24 +199,26 @@ class AutoClockAccessibilityService : AccessibilityService() {
      * 日志路径: /data/data/com.lark.autoclock/files/clock_log.txt
      */
     private fun recordClockResult(confirmed: Boolean, detail: String) {
-        try {
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            val timestamp = sdf.format(Date())
-            val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
-            val logLine = "[$timestamp] $status | $detail\n"
+        synchronized(logLock) {
+            try {
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val timestamp = sdf.format(Date())
+                val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
+                val logLine = "[$timestamp] $status | $detail\n"
 
-            val logFile = File(applicationContext.filesDir, "clock_log.txt")
-            logFile.appendText(logLine)
-            
-            // 限制文件行数，保留最近 200 行防止无限膨胀
-            val lines = logFile.readLines()
-            if (lines.size > 200) {
-                logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+                val logFile = File(applicationContext.filesDir, "clock_log.txt")
+                logFile.appendText(logLine)
+
+                // 限制文件行数，保留最近 200 行防止无限膨胀（降频：超过 250 行才裁剪）
+                val lines = logFile.readLines()
+                if (lines.size > 250) {
+                    logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+                }
+
+                Log.d(TAG, "打卡日志已写入: $logLine")
+            } catch (e: Exception) {
+                Log.e(TAG, "写入打卡日志失败: ${e.message}")
             }
-            
-            Log.d(TAG, "打卡日志已写入: $logLine")
-        } catch (e: Exception) {
-            Log.e(TAG, "写入打卡日志失败: ${e.message}")
         }
     }
 

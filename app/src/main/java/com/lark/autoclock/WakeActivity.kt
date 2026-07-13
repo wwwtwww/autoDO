@@ -120,5 +120,12 @@ class WakeActivity : Activity() {
                 Log.e("WakeActivity", "释放 WakeLock 异常: ${e.message}")
             }
         }
+        // 兜底清除唤醒通知，防止系统强杀时 releaseLocksAndFinish 未执行完毕导致通知残留
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(com.lark.autoclock.scheduler.ClockActionReceiver.WAKE_NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.e("WakeActivity", "onDestroy 清除唤醒通知异常: ${e.message}")
+        }
     }
 }

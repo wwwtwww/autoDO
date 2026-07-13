@@ -34,6 +34,10 @@ object HolidayHelper {
      * type = 0 (工作日), type = 3 (调休工作日) 返回 true
      * type = 1 (周末), type = 2 (节假日) 返回 false
      */
+    @Deprecated(
+        message = "UNKNOWN 状态会被隐式判定为工作日，绕过智能降级逻辑。请改用 getTodayWorkdayStatus() + resolveStatusOnNetworkFailure() 组合。",
+        replaceWith = ReplaceWith("getTodayWorkdayStatus()")
+    )
     fun isTodayWorkday(): Boolean {
         return getTodayWorkdayStatus() != WorkdayStatus.RESTDAY
     }
