@@ -31,6 +31,16 @@ jobs:
           path: ~/.android/debug.keystore
           key: debug-keystore-${{ runner.os }}
 
+      - name: 运行单元测试
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: 上传测试结果报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Unit-Test-Results
+          path: app/build/reports/tests/testDebugUnitTest/
+
       - name: 编译 APK 并保存日志
         run: gradle assembleDebug --stacktrace --info > build_log.txt 2>&1 || (cat build_log.txt && exit 1)
 
