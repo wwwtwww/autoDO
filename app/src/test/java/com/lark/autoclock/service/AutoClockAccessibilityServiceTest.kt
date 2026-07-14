@@ -61,8 +61,9 @@ class AutoClockAccessibilityServiceTest {
     }
 
     @Test
-    fun `success keyword without any context keyword is not confirmed`() {
-        val text = "打卡成功 恭喜你完成了今天的步数目标"
+    fun `context keywords without success keyword is not confirmed`() {
+        // "打卡" 和 "上班" 都是上下文关键词，但没有 "打卡成功" 等成功关键词
+        val text = "打卡提醒 您今天上班还未打卡 请尽快前往打卡地点"
 
         assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text))
     }
