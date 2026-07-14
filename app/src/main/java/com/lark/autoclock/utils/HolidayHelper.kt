@@ -1,7 +1,6 @@
 package com.lark.autoclock.utils
 
 import android.util.Log
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -16,10 +15,23 @@ object HolidayHelper {
 
     fun parseWorkdayStatus(response: String): WorkdayStatus {
         return try {
-            val jsonObject = JSONObject(response)
-            if (jsonObject.getInt("code") != 0) return WorkdayStatus.UNKNOWN
+            // 由于 Android SDK 的 org.json.JSONObject 在本地 JVM 单元测试中会抛出 "Stub!" 异常，
+            // 且测试类路径问题导致额外的 json 依赖很难覆盖 android.jar，
+            // 这里针对 Timor API 非常固定的格式，采用基于 Regex 的轻量级解析。
+            
+            // 1. 检查 code 是否为 0
+            val codeMatch = Regex("\"code\"\\s*:\\s*(-?\\d+)").find(response)
+            if (codeMatch?.groupValues?.get(1) != "0") return WorkdayStatus.UNKNOWN
 
-            when (jsonObject.getJSONObject("type").getInt("type")) {
+            // 2. 提取 "type" 对象内容 (例如 "type":{"type":0,"name":"周一"})
+            val typeObjMatch = Regex("\"type\"\\s*:\\s*\\{([^}]+)\\}").find(response)
+            val typeObjStr = typeObjMatch?.groupValues?.get(1) ?: return WorkdayStatus.UNKNOWN
+
+            // 3. 在 type 对象内部读取 "type" 的整型值
+            val typeMatch = Regex("\"type\"\\s*:\\s*(\\d+)").find(typeObjStr)
+            val typeVal = typeMatch?.groupValues?.get(1)?.toIntOrNull() ?: return WorkdayStatus.UNKNOWN
+
+            when (typeVal) {
                 0, 3 -> WorkdayStatus.WORKDAY
                 1, 2 -> WorkdayStatus.RESTDAY
                 else -> WorkdayStatus.UNKNOWN
