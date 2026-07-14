@@ -15,6 +15,58 @@ object ClockScheduler {
     private const val PREFS_NAME = "AutoClockPrefs"
 
     /**
+     * 打卡闹钟的决策结果
+     */
+    enum class ClockAction {
+        /** 正常下发精准闹钟 */
+        SCHEDULE,
+        /** 时序滞后，需立即补打卡 */
+        COMPENSATE,
+        /** 已超过补偿截止时间，跳过 */
+        SKIP
+    }
+
+    /**
+     * 纯函数：判定上班打卡应执行的动作。
+     * @param scheduledTimeMillis 随机计算出的上班打卡闹钟时间
+     * @param currentTimeMillis  当前真实系统时间
+     * @return SCHEDULE=正常下发, COMPENSATE=立即补卡, SKIP=跳过
+     *
+     * 补偿截止线：当天 11:30。超过此时间认为补打上班卡已无意义。
+     */
+    fun resolveClockInAction(scheduledTimeMillis: Long, currentTimeMillis: Long): ClockAction {
+        if (scheduledTimeMillis > currentTimeMillis) return ClockAction.SCHEDULE
+        val limitCal = Calendar.getInstance().apply {
+            timeInMillis = currentTimeMillis
+            set(Calendar.HOUR_OF_DAY, 11)
+            set(Calendar.MINUTE, 30)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return if (currentTimeMillis < limitCal.timeInMillis) ClockAction.COMPENSATE else ClockAction.SKIP
+    }
+
+    /**
+     * 纯函数：判定下班打卡应执行的动作。
+     * @param scheduledTimeMillis 随机计算出的下班打卡闹钟时间
+     * @param currentTimeMillis  当前真实系统时间
+     * @return SCHEDULE=正常下发, COMPENSATE=立即补卡, SKIP=跳过
+     *
+     * 补偿截止线：当天 22:00。超过此时间认为补打下班卡已无意义。
+     */
+    fun resolveClockOutAction(scheduledTimeMillis: Long, currentTimeMillis: Long): ClockAction {
+        if (scheduledTimeMillis > currentTimeMillis) return ClockAction.SCHEDULE
+        val limitCal = Calendar.getInstance().apply {
+            timeInMillis = currentTimeMillis
+            set(Calendar.HOUR_OF_DAY, 22)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return if (currentTimeMillis < limitCal.timeInMillis) ClockAction.COMPENSATE else ClockAction.SKIP
+    }
+
+    /**
      * 激活每天凌晨 00:30 的日程调度器
      */
     fun scheduleDailySetup(context: Context) {
@@ -94,35 +146,31 @@ object ClockScheduler {
             set(Calendar.SECOND, Random.nextInt(0, 60))
         }
 
-        if (clockInCal.timeInMillis > System.currentTimeMillis()) {
-            setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis)
-            Log.d("AutoClock", "今天上班打卡已随机安排在: ${clockInCal.time}")
-        } else {
-            // 时序滞后补偿逻辑：如果闹钟时间已经过去，但当前仍处于上午（11:30前），说明凌晨任务被系统推迟触发了，立即执行补卡
-            val limitCal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 11)
-                set(Calendar.MINUTE, 30)
-                set(Calendar.SECOND, 0)
+        when (resolveClockInAction(clockInCal.timeInMillis, System.currentTimeMillis())) {
+            ClockAction.SCHEDULE -> {
+                setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis)
+                Log.d("AutoClock", "今天上班打卡已随机安排在: ${clockInCal.time}")
             }
-            if (System.currentTimeMillis() < limitCal.timeInMillis) {
+            ClockAction.COMPENSATE -> {
                 Log.w("AutoClock", "上班打卡随机时间已过，但在11:30之前，触发即时补打卡流程")
                 triggerImmediateClock(context)
             }
+            ClockAction.SKIP -> {
+                Log.w("AutoClock", "上班打卡随机时间已过且超过11:30补偿截止线，跳过")
+            }
         }
 
-        if (clockOutCal.timeInMillis > System.currentTimeMillis()) {
-            setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis)
-            Log.d("AutoClock", "今天下班打卡已随机安排在: ${clockOutCal.time}")
-        } else {
-            // 时序滞后补偿逻辑：如果下班闹钟时间已过去，但当前仍在深夜（22:00前），立即执行补卡
-            val limitCal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 22)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
+        when (resolveClockOutAction(clockOutCal.timeInMillis, System.currentTimeMillis())) {
+            ClockAction.SCHEDULE -> {
+                setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis)
+                Log.d("AutoClock", "今天下班打卡已随机安排在: ${clockOutCal.time}")
             }
-            if (System.currentTimeMillis() < limitCal.timeInMillis) {
+            ClockAction.COMPENSATE -> {
                 Log.w("AutoClock", "下班打卡随机时间已过，但在22:00之前，触发即时补打卡流程")
                 triggerImmediateClock(context)
+            }
+            ClockAction.SKIP -> {
+                Log.w("AutoClock", "下班打卡随机时间已过且超过22:00补偿截止线，跳过")
             }
         }
     }
