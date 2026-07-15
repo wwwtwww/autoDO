@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.util.Log
 import android.view.WindowManager
 import android.content.BroadcastReceiver
+import android.content.Intent
 import android.content.IntentFilter
 import com.lark.autoclock.service.AutoClockAccessibilityService
 
