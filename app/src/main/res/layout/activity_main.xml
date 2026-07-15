@@ -124,6 +124,20 @@
             app:cornerRadius="12dp"/>
 
         <Button
+            android:id="@+id/btn_auto_start"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🚀  开启后台自启动权限 (防断电)"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#CEEAD6"
+            android:textColor="#137333"
+            app:elevation="0dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
             android:id="@+id/btn_test_unlock"
             android:layout_width="match_parent"
             android:layout_height="56dp"

@@ -122,6 +122,55 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_manage_exceptions).setOnClickListener {
             showExceptionsDialog()
         }
+
+        // 7. 自启动权限管理
+        findViewById<Button>(R.id.btn_auto_start).setOnClickListener {
+            openAutoStartSettings()
+        }
+    }
+
+    /**
+     * 跳转至国产 ROM 的自启动管理页面
+     */
+    private fun openAutoStartSettings() {
+        val intents = arrayOf(
+            Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+            Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")),
+            Intent().setComponent(android.content.ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(android.content.ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")),
+            Intent().setComponent(android.content.ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")),
+            Intent().setComponent(android.content.ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+            Intent().setComponent(android.content.ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")),
+            Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+            Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")),
+            Intent().setComponent(android.content.ComponentName("com.meizu.safe", "com.meizu.safe.security.SHOW_APPSEC"))
+        )
+
+        var success = false
+        for (intent in intents) {
+            try {
+                if (packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    success = true
+                    break
+                }
+            } catch (e: Exception) {
+                // Ignore and try next
+            }
+        }
+
+        if (!success) {
+            Toast.makeText(this, "未能自动打开自启动管理，请在设置中手动开启", Toast.LENGTH_LONG).show()
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.parse("package:$packageName")
+                startActivity(intent)
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+        }
     }
 
     private fun showExceptionsDialog() {
