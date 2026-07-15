@@ -83,6 +83,12 @@ class MainActivity : AppCompatActivity() {
 
         // 3. 单独测试飞书打卡
         findViewById<Button>(R.id.btn_test_clock_in).setOnClickListener {
+            val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            val serviceName = packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
+            if (enabledServices?.contains(serviceName) != true) {
+                Toast.makeText(this, "测试打卡失败：请先开启 autoDO 无障碍服务！", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             Toast.makeText(this, "正在启动极速打卡测试流...", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, com.lark.autoclock.service.AutoClockAccessibilityService::class.java)
             intent.action = "ACTION_START_CLOCK_IN"
