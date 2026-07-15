@@ -35,7 +35,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var retryCount = 0
     private var lastScanAt = 0L
-    private val MAX_RETRY = 30 // 约 30 秒超时
+    private val MAX_RETRY = 30 // 最大重试次数 30 次（结合 500ms 扫描间隔，即 15 秒超时）
     private var timeoutRunnable: Runnable? = null
     private val logLock = Any()
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
