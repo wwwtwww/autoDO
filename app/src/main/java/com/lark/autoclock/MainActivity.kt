@@ -434,9 +434,12 @@ class MainActivity : AppCompatActivity() {
 
         val setupTimePicker = { tv: TextView ->
             tv.setOnClickListener {
-                val time = tv.text.toString().split(":")
-                val hour = time[0].toInt()
-                val minute = time[1].toInt()
+                val (hour, minute) = try {
+                    val parts = tv.text.toString().split(":")
+                    parts[0].toInt() to parts[1].toInt()
+                } catch (e: Exception) {
+                    7 to 30 // 回退默认值
+                }
                 TimePickerDialog(this, { _, selectedHour, selectedMinute ->
                     tv.text = String.format(Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute)
                 }, hour, minute, true).show()
