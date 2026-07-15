@@ -4,18 +4,27 @@ import android.app.Activity
 import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.util.Log
 import android.view.WindowManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import com.lark.autoclock.service.AutoClockAccessibilityService
 
 class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var keyguardDismissFailed = false
+    private var isReceiverRegistered = false
+
+    private val finishReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d("WakeActivity", "收到打卡完成广播，准备释放 WakeLock 并结束 Activity")
+            releaseLocksAndFinish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,19 +81,32 @@ class WakeActivity : Activity() {
             }
 
             if (chainAction == "ACTION_START_CLOCK_IN") {
-                Log.d("WakeActivity", "正在触发飞书打卡流...")
-                val serviceIntent = Intent(this, AutoClockAccessibilityService::class.java)
-                serviceIntent.action = "ACTION_START_CLOCK_IN"
-                try {
-                    startService(serviceIntent)
-                } catch (e: Exception) {
-                    Log.e("WakeActivity", "后台启动无障碍服务被拦截或异常: ${e.message}")
+                val clockType = intent.getStringExtra("CLOCK_TYPE") ?: "未知"
+                Log.d("WakeActivity", "正在触发飞书打卡流... 类型: $clockType")
+                val service = AutoClockAccessibilityService.instance
+                if (service != null) {
+                    service.startClockIn(clockType)
+
+                    // 注册广播监听服务结束
+                    val filter = IntentFilter("com.lark.autoclock.ACTION_CLOCK_FINISHED")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                    } else {
+                        registerReceiver(finishReceiver, filter)
+                    }
+                    isReceiverRegistered = true
+                } else {
+                    Log.e("WakeActivity", "无障碍服务未连接（可能未在系统设置中开启），打卡流程无法执行")
                 }
-            }
-            // 延迟释放 WakeLock 和关闭 Activity
-            mainHandler.postDelayed({
+
+                // 延迟释放 WakeLock 和关闭 Activity（兜底超时放宽到 20 秒）
+                mainHandler.postDelayed({
+                    Log.w("WakeActivity", "等待打卡广播超时 (20s)，触发兜底释放")
+                    releaseLocksAndFinish()
+                }, 20000)
+            } else {
                 releaseLocksAndFinish()
-            }, 3000)
+            }
         }, 2000) // 给系统足够时间完成亮屏和解锁动画
     }
 
@@ -111,6 +133,14 @@ class WakeActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(finishReceiver)
+            } catch (e: Exception) {
+                Log.e("WakeActivity", "反注册广播异常: ${e.message}")
+            }
+            isReceiverRegistered = false
+        }
         mainHandler.removeCallbacksAndMessages(null)
         com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
         if (wakeLock?.isHeld == true) {

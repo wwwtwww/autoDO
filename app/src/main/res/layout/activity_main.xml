@@ -138,6 +138,34 @@
             app:cornerRadius="12dp"/>
 
         <Button
+            android:id="@+id/btn_battery_optimization"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🔋  关闭电池优化 (防杀后台)"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#F2E6FF"
+            android:textColor="#6200EE"
+            app:elevation="0dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_keepalive"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="🔔  前台保活通知（遇遗漏再开启）"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#FFF8E1"
+            android:textColor="#F57F17"
+            app:elevation="0dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
             android:id="@+id/btn_test_unlock"
             android:layout_width="match_parent"
             android:layout_height="56dp"

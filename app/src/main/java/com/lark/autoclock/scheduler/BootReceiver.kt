@@ -13,6 +13,14 @@ class BootReceiver : BroadcastReceiver() {
             ClockScheduler.scheduleDailySetup(context)
             val checkIntent = Intent(context, DailySetupReceiver::class.java)
             context.sendBroadcast(checkIntent)
+
+            // 恢复前台保活服务（如果用户之前已开启）
+            val prefs = context.getSharedPreferences("AutoClockPrefs", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("keepalive_enabled", false)) {
+                val keepAliveIntent = Intent(context, com.lark.autoclock.service.KeepAliveService::class.java)
+                androidx.core.content.ContextCompat.startForegroundService(context, keepAliveIntent)
+                Log.d("AutoClock", "已恢复前台保活服务")
+            }
         }
     }
 }

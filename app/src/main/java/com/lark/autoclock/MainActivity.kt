@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val KEY_BATTERY_PROMPTED = "battery_prompted"
     private val KEY_LOCKSCREEN_PROMPTED = "lockscreen_prompted"
     private val KEY_FULL_SCREEN_PROMPTED = "full_screen_prompted"
+    private val KEY_KEEPALIVE_ENABLED = "keepalive_enabled"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +42,15 @@ class MainActivity : AppCompatActivity() {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
             }
+        }
+
+        // 恢复前台保活服务（如果用户之前已开启）
+        if (getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_KEEPALIVE_ENABLED, false)) {
+            androidx.core.content.ContextCompat.startForegroundService(
+                this,
+                Intent(this, com.lark.autoclock.service.KeepAliveService::class.java)
+            )
         }
 
         // 1. 跳转无障碍设置
@@ -90,9 +100,12 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             Toast.makeText(this, "正在启动极速打卡测试流...", Toast.LENGTH_SHORT).show()
-            val intent = Intent(this, com.lark.autoclock.service.AutoClockAccessibilityService::class.java)
-            intent.action = "ACTION_START_CLOCK_IN"
-            startService(intent)
+            val service = com.lark.autoclock.service.AutoClockAccessibilityService.instance
+            if (service != null) {
+                service.startClockIn("测试")
+            } else {
+                Toast.makeText(this, "无障碍服务未连接，请重新开启后再试", Toast.LENGTH_LONG).show()
+            }
         }
 
         // 4. 激活正式任务
@@ -132,6 +145,53 @@ class MainActivity : AppCompatActivity() {
         // 7. 自启动权限管理
         findViewById<Button>(R.id.btn_auto_start).setOnClickListener {
             openAutoStartSettings()
+        }
+
+        // 8. 电池优化管理
+        findViewById<Button>(R.id.btn_battery_optimization).setOnClickListener {
+            requestIgnoreBatteryOptimization()
+        }
+
+        // 9. 前台保活通知开关（第二层保活，遇打卡遗漏时手动开启）
+        val btnKeepAlive = findViewById<Button>(R.id.btn_keepalive)
+        updateKeepAliveButtonUI(btnKeepAlive)
+        btnKeepAlive.setOnClickListener {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val isEnabled = prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
+            val newState = !isEnabled
+            prefs.edit().putBoolean(KEY_KEEPALIVE_ENABLED, newState).apply()
+
+            if (newState) {
+                androidx.core.content.ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, com.lark.autoclock.service.KeepAliveService::class.java)
+                )
+                Toast.makeText(this, "前台保活已开启，常驻通知将防止进程被挂起", Toast.LENGTH_LONG).show()
+                // 联动判断：无障碍服务未启用时追加警示
+                if (com.lark.autoclock.service.AutoClockAccessibilityService.instance == null) {
+                    Toast.makeText(this, "前台保活已开启，但无障碍服务未启用！请前往无障碍页面开启", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                stopService(Intent(this, com.lark.autoclock.service.KeepAliveService::class.java))
+                Toast.makeText(this, "前台保活已关闭", Toast.LENGTH_SHORT).show()
+            }
+            updateKeepAliveButtonUI(btnKeepAlive)
+        }
+    }
+
+    private fun updateKeepAliveButtonUI(button: Button) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
+        if (isEnabled) {
+            button.text = "🔔  前台保活：已开启（点击关闭）"
+            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#FFF3E0")
+            )
+        } else {
+            button.text = "🔔  前台保活通知（遇遗漏再开启）"
+            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#FFF8E1")
+            )
         }
     }
 

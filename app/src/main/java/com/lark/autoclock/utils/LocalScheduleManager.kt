@@ -53,7 +53,17 @@ object LocalScheduleManager {
             else -> false
         }
 
-        Log.d("AutoClock", "今天 ($todayStr, 星期${dayOfWeek - 1 ?: 7}) 基础周期判定: ${if (isWorkday) "上班" else "休息"}")
+        val weekdayDisplay = when (dayOfWeek) {
+            Calendar.MONDAY -> "星期一"
+            Calendar.TUESDAY -> "星期二"
+            Calendar.WEDNESDAY -> "星期三"
+            Calendar.THURSDAY -> "星期四"
+            Calendar.FRIDAY -> "星期五"
+            Calendar.SATURDAY -> "星期六"
+            Calendar.SUNDAY -> "星期日"
+            else -> "未知"
+        }
+        Log.d("AutoClock", "今天 ($todayStr, $weekdayDisplay) 基础周期判定: ${if (isWorkday) "上班" else "休息"}")
         return if (isWorkday) WorkdayStatus.WORKDAY else WorkdayStatus.RESTDAY
     }
 

@@ -25,7 +25,8 @@ class ClockActionReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！===")
+        val clockType = intent.getStringExtra("CLOCK_TYPE") ?: "未知"
+        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！类型: $clockType ===")
 
         // ======== 第 1 层：最底层的 CPU + 屏幕 WakeLock（确保 CPU 不会在中途睡回去）========
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -55,6 +56,7 @@ class ClockActionReceiver : BroadcastReceiver() {
         val wakeIntent = Intent(context, WakeActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             putExtra("CHAIN_ACTION", "ACTION_START_CLOCK_IN")
+            putExtra("CLOCK_TYPE", clockType)
         }
 
         val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -81,6 +83,7 @@ class ClockActionReceiver : BroadcastReceiver() {
             val directIntent = Intent(context, WakeActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra("CHAIN_ACTION", "ACTION_START_CLOCK_IN")
+                putExtra("CLOCK_TYPE", clockType)
             }
             context.startActivity(directIntent)
             Log.d("AutoClock", "已尝试直接启动 WakeActivity（best-effort，实际可能被系统拦截）")

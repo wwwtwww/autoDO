@@ -40,39 +40,54 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private val logLock = Any()
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var currentClockType = "未知"
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
         const val TAG = "AutoClock"
         private const val MIN_SCAN_INTERVAL_MS = 500L
+        @Volatile
+        var instance: AutoClockAccessibilityService? = null
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+        Log.d(TAG, "无障碍服务已连接，单例引用已设置")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             "ACTION_START_CLOCK_IN" -> {
-                Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式）===")
-                // 精准移除上一次的超时回调（不影响 goHomeAndReset 中的延迟回调）
-                timeoutRunnable?.let { handler.removeCallbacks(it) }
-                retryCount = 0
-                lastScanAt = 0L
-                currentState = ClockState.WAIT_CONFIRM
-
-                launchFeishu()
-
-                // 超时机制：15 秒后如果还没确认到打卡结果
-                timeoutRunnable = Runnable {
-                    if (currentState == ClockState.WAIT_CONFIRM) {
-                        Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
-                        // 虽然没检测到确认文字，但极速打卡大概率已经成功
-                        val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
-                        recordClockResult(confirmed = false, detail = msg)
-                        goHomeAndReset()
-                    }
-                }
-                handler.postDelayed(timeoutRunnable!!, 15000)
+                startClockIn(intent.getStringExtra("CLOCK_TYPE") ?: "未知")
             }
         }
         return super.onStartCommand(intent, flags, startId)
+    }
+
+    /**
+     * 供外部组件（WakeActivity / MainActivity）直接调用的打卡入口。
+     * 通过伴生对象单例引用调用，绕过 startService() 的 BIND_ACCESSIBILITY_SERVICE 权限限制。
+     */
+    fun startClockIn(clockType: String) {
+        currentClockType = clockType
+        Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式，类型: $currentClockType）===")
+        timeoutRunnable?.let { handler.removeCallbacks(it) }
+        retryCount = 0
+        lastScanAt = 0L
+        currentState = ClockState.WAIT_CONFIRM
+
+        launchFeishu()
+
+        timeoutRunnable = Runnable {
+            if (currentState == ClockState.WAIT_CONFIRM) {
+                Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
+                val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
+                recordClockResult(confirmed = false, detail = msg)
+                goHomeAndReset()
+            }
+        }
+        handler.postDelayed(timeoutRunnable!!, 15000)
     }
 
     /**
@@ -88,14 +103,12 @@ class AutoClockAccessibilityService : AccessibilityService() {
             } else {
                 Log.e(TAG, "未找到飞书包: $FEISHU_PACKAGE_NAME")
                 recordClockResult(confirmed = false, detail = "未找到飞书 App")
-                lastScanAt = 0L
-                currentState = ClockState.IDLE
+                goHomeAndReset()
             }
         } catch (e: Exception) {
             Log.e(TAG, "拉起飞书异常: ${e.message}")
             recordClockResult(confirmed = false, detail = "启动飞书异常: ${e.message}")
-            lastScanAt = 0L
-            currentState = ClockState.IDLE
+            goHomeAndReset()
         }
     }
 
@@ -201,6 +214,11 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 currentState = ClockState.IDLE
                 lastScanAt = 0L
                 Log.d(TAG, "流程结束，状态已重置")
+                
+                // 通知 WakeActivity 释放 WakeLock
+                sendBroadcast(Intent("com.lark.autoclock.ACTION_CLOCK_FINISHED").apply {
+                    setPackage(packageName)
+                })
             }
         }, 3000)
     }
@@ -210,11 +228,9 @@ class AutoClockAccessibilityService : AccessibilityService() {
      * 日志路径: /data/data/com.lark.autoclock/files/clock_log.txt
      */
     private fun recordClockResult(confirmed: Boolean, detail: String) {
-        // 在主线程构造日志内容（保证时间戳精确），但将磁盘 IO 异步化到后台线程
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val timestamp = sdf.format(Date())
-        val status = if (confirmed) "✅ 已确认" else "⚠️ 未确认"
-        val logLine = "[$timestamp] $status | $detail\n"
+        val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val status = if (confirmed) "✅已确认" else "⚠️未确认"
+        val logLine = "[$timeStr] [$currentClockType] $status - $detail\n"
         Log.d(TAG, "打卡日志已生成: $logLine")
 
         ioScope.launch {
@@ -241,6 +257,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         handler.removeCallbacksAndMessages(null)
         ioScope.cancel() // 取消所有挂起的 IO 协程，防止服务销毁后写入
         currentState = ClockState.IDLE

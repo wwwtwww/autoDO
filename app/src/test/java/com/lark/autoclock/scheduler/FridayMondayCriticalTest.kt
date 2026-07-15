@@ -1,5 +1,9 @@
 package com.lark.autoclock.scheduler
 
+import org.junit.Test
+import org.junit.Assert.assertEquals
+import java.util.Calendar
+
 /**
  * 针对「周五下班卡」和「周一上班卡」两个最高风险场景的最严格单元测试。
  *
