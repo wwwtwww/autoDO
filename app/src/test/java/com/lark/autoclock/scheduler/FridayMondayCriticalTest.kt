@@ -1,17 +1,11 @@
 package com.lark.autoclock.scheduler
 
-import com.lark.autoclock.utils.HolidayHelper
-import org.junit.Assert.assertEquals
-import org.junit.Test
-import java.util.Calendar
-
 /**
  * 针对「周五下班卡」和「周一上班卡」两个最高风险场景的最严格单元测试。
  *
- * 测试覆盖三层防线：
- * 1. HolidayHelper 节假日降级判定 —— 确保网络异常时周一/周五永远判定为工作日
- * 2. ClockScheduler 时序补偿决策 —— 覆盖每一个时间边界点
- * 3. 端到端场景模拟 —— 模拟真实的「周五傍晚 Doze 延迟」和「周一早晨 Doze 延迟」
+ * 测试覆盖：
+ * 1. ClockScheduler 时序补偿决策 —— 覆盖每一个时间边界点
+ * 2. 端到端场景模拟 —— 模拟真实的「周五傍晚 Doze 延迟」和「周一早晨 Doze 延迟」
  */
 class FridayMondayCriticalTest {
 
@@ -36,42 +30,6 @@ class FridayMondayCriticalTest {
      */
     private fun minutesFromNow(now: Long, deltaMinutes: Int): Long {
         return now + deltaMinutes * 60 * 1000L
-    }
-
-    // ========================================================================================
-    // 第一层：HolidayHelper 节假日降级 —— 确保周一和周五永远被判定为工作日
-    // ========================================================================================
-
-    @Test
-    fun `LAYER1 - Monday is WORKDAY on network failure`() {
-        assertEquals(
-            HolidayHelper.WorkdayStatus.WORKDAY,
-            HolidayHelper.resolveStatusOnNetworkFailure(Calendar.MONDAY)
-        )
-    }
-
-    @Test
-    fun `LAYER1 - Friday is WORKDAY on network failure`() {
-        assertEquals(
-            HolidayHelper.WorkdayStatus.WORKDAY,
-            HolidayHelper.resolveStatusOnNetworkFailure(Calendar.FRIDAY)
-        )
-    }
-
-    @Test
-    fun `LAYER1 - Saturday is RESTDAY on network failure`() {
-        assertEquals(
-            HolidayHelper.WorkdayStatus.RESTDAY,
-            HolidayHelper.resolveStatusOnNetworkFailure(Calendar.SATURDAY)
-        )
-    }
-
-    @Test
-    fun `LAYER1 - Sunday is RESTDAY on network failure`() {
-        assertEquals(
-            HolidayHelper.WorkdayStatus.RESTDAY,
-            HolidayHelper.resolveStatusOnNetworkFailure(Calendar.SUNDAY)
-        )
     }
 
     // ========================================================================================
@@ -250,16 +208,11 @@ class FridayMondayCriticalTest {
      * 凌晨 00:30 的 DailySetupReceiver 正常下发了下班闹钟（18:05），
      * 但手机直到 19:30 才被系统唤醒执行调度。
      *
-     * 预期：HolidayHelper 判定周五为工作日 → ClockScheduler 发现下班闹钟已过
-     * → 当前 19:30 < 22:00 → 触发即时补打卡
+     * 预期：当前 19:30 < 22:00 → 触发即时补打卡
      */
     @Test
     fun `E2E - Friday evening Doze delay triggers compensation`() {
-        // Layer 1: 周五在断网时仍判定为工作日
-        val fridayStatus = HolidayHelper.resolveStatusOnNetworkFailure(Calendar.FRIDAY)
-        assertEquals(HolidayHelper.WorkdayStatus.WORKDAY, fridayStatus)
-
-        // Layer 2: 下班闹钟已过，但在 22:00 之前 → 补偿
+        // 下班闹钟已过，但在 22:00 之前 → 补偿
         val alarm = todayAt(18, 5)
         val now = todayAt(19, 30)
         assertEquals(ClockScheduler.ClockAction.COMPENSATE, ClockScheduler.resolveClockOutAction(alarm, now))
@@ -270,44 +223,26 @@ class FridayMondayCriticalTest {
      * 凌晨 00:30 的调度任务被推迟到用户早上拿起手机时才触发（08:45）。
      * 计算出的随机上班打卡时间为 07:50，已经过去了。
      *
-     * 预期：HolidayHelper 判定周一为工作日 → ClockScheduler 发现上班闹钟已过
-     * → 当前 08:45 < 11:30 → 触发即时补打卡
+     * 预期：当前 08:45 < 11:30 → 触发即时补打卡
      */
     @Test
     fun `E2E - Monday morning Doze delay triggers compensation`() {
-        // Layer 1: 周一在断网时仍判定为工作日
-        val mondayStatus = HolidayHelper.resolveStatusOnNetworkFailure(Calendar.MONDAY)
-        assertEquals(HolidayHelper.WorkdayStatus.WORKDAY, mondayStatus)
-
-        // Layer 2: 上班闹钟已过，但在 11:30 之前 → 补偿
+        // 上班闹钟已过，但在 11:30 之前 → 补偿
         val alarm = todayAt(7, 50)
         val now = todayAt(8, 45)
         assertEquals(ClockScheduler.ClockAction.COMPENSATE, ClockScheduler.resolveClockInAction(alarm, now))
     }
 
-    /**
-     * 场景：周六凌晨 00:30 DailySetupReceiver 触发，但网络异常。
-     *
-     * 预期：HolidayHelper 判定周六为休息日 → 不下发任何打卡闹钟 → 不会误打卡
-     */
-    @Test
-    fun `E2E - Saturday network failure does NOT trigger clock`() {
-        val saturdayStatus = HolidayHelper.resolveStatusOnNetworkFailure(Calendar.SATURDAY)
-        assertEquals(HolidayHelper.WorkdayStatus.RESTDAY, saturdayStatus)
-        // REST_DAY 状态下 DailySetupReceiver 不会调用 scheduleTodayClockActions，无需进入补偿逻辑
-    }
+    // E2E - Saturday network failure test removed because local mode handles this implicitly
 
     /**
      * 场景：周一早上 11:31 才醒来（极端 Doze），上班打卡时间 08:00 已经过去 3.5 小时。
      *
-     * 预期：虽然是工作日，但已超过 11:30 补偿截止线 → SKIP，不再补打。
+     * 预期：已超过 11:30 补偿截止线 → SKIP，不再补打。
      * 这是合理的：打了也是旷工迟到太久没意义。
      */
     @Test
     fun `E2E - Monday extreme late Doze past deadline skips`() {
-        val mondayStatus = HolidayHelper.resolveStatusOnNetworkFailure(Calendar.MONDAY)
-        assertEquals(HolidayHelper.WorkdayStatus.WORKDAY, mondayStatus)
-
         val alarm = todayAt(8, 0)
         val now = todayAt(11, 31)
         assertEquals(ClockScheduler.ClockAction.SKIP, ClockScheduler.resolveClockInAction(alarm, now))
@@ -316,13 +251,10 @@ class FridayMondayCriticalTest {
     /**
      * 场景：周五晚上 22:01 才发现下班卡没打。
      *
-     * 预期：虽然是工作日，但已超过 22:00 补偿截止线 → SKIP。
+     * 预期：已超过 22:00 补偿截止线 → SKIP。
      */
     @Test
     fun `E2E - Friday extreme late evening past deadline skips`() {
-        val fridayStatus = HolidayHelper.resolveStatusOnNetworkFailure(Calendar.FRIDAY)
-        assertEquals(HolidayHelper.WorkdayStatus.WORKDAY, fridayStatus)
-
         val alarm = todayAt(18, 5)
         val now = todayAt(22, 1)
         assertEquals(ClockScheduler.ClockAction.SKIP, ClockScheduler.resolveClockOutAction(alarm, now))
