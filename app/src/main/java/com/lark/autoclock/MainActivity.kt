@@ -25,7 +25,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 import com.lark.autoclock.scheduler.ClockScheduler
-import com.lark.autoclock.utils.HolidayHelper
 
 class MainActivity : AppCompatActivity() {
     private val PREFS_NAME = "AutoClockPrefs"
@@ -52,9 +51,13 @@ class MainActivity : AppCompatActivity() {
 
         // 2. 测试亮屏与解锁
         findViewById<Button>(R.id.btn_test_unlock).setOnClickListener {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                Toast.makeText(this, "测试亮屏需要精确闹钟权限，请在设置中授予！", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             Toast.makeText(this, "倒计时 10 秒钟，请立刻按电源键锁屏！", Toast.LENGTH_LONG).show()
 
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java)
             val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
@@ -63,11 +66,19 @@ class MainActivity : AppCompatActivity() {
             }
             val pendingIntent = android.app.PendingIntent.getBroadcast(this, 999, intent, pendingFlags)
 
-            alarmManager.setExactAndAllowWhileIdle(
-                android.app.AlarmManager.RTC_WAKEUP,
-                System.currentTimeMillis() + 10000,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 10000,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 10000,
+                    pendingIntent
+                )
+            }
         }
 
         // 3. 单独测试飞书打卡
@@ -80,22 +91,21 @@ class MainActivity : AppCompatActivity() {
 
         // 4. 激活正式任务
         findViewById<Button>(R.id.btn_schedule_tasks).setOnClickListener {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                Toast.makeText(this, "激活任务需要精确闹钟权限，请在设置中授予！", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            
             ClockScheduler.scheduleDailySetup(this)
             Toast.makeText(this, "守护进程已启动，请将手机放置在充电座上即可，无需其他操作。", Toast.LENGTH_LONG).show()
 
-            lifecycleScope.launch {
-                val status = withContext(Dispatchers.IO) { HolidayHelper.getTodayWorkdayStatus() }
-                val resolvedStatus = if (status == HolidayHelper.WorkdayStatus.UNKNOWN) {
-                    val dayOfWeek = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
-                    HolidayHelper.resolveStatusOnNetworkFailure(dayOfWeek)
-                } else status
-
-                if (resolvedStatus == HolidayHelper.WorkdayStatus.WORKDAY) {
-                    ClockScheduler.scheduleTodayClockActions(this@MainActivity)
-                    Toast.makeText(this@MainActivity, "今天为工作日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "节假日判定：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
-                }
+            val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
+            if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
+                ClockScheduler.scheduleTodayClockActions(this)
+                Toast.makeText(this, "今天为打卡日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "本地配置：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -108,7 +118,54 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_config_time).setOnClickListener {
             showTimeConfigDialog()
         }
+
+        findViewById<Button>(R.id.btn_manage_exceptions).setOnClickListener {
+            showExceptionsDialog()
+        }
     }
+
+    private fun showExceptionsDialog() {
+        val exceptions = com.lark.autoclock.utils.LocalScheduleManager.getAllExceptions(this)
+        val sortedKeys = exceptions.keys.sortedDescending()
+        val items = sortedKeys.map { date ->
+            val type = if (exceptions[date] == "WORK") "强制打卡 (补班)" else "强制休息 (节假日)"
+            "$date  -  $type"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("例外日期管理")
+            .setItems(items) { _, which ->
+                val date = sortedKeys[which]
+                AlertDialog.Builder(this)
+                    .setTitle("删除例外")
+                    .setMessage("确定要删除 $date 的例外配置吗？")
+                    .setPositiveButton("删除") { _, _ ->
+                        com.lark.autoclock.utils.LocalScheduleManager.removeException(this, date)
+                        showExceptionsDialog() // 刷新
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
+            .setPositiveButton("添加例外") { _, _ ->
+                val calendar = java.util.Calendar.getInstance()
+                android.app.DatePickerDialog(this, { _, year, month, dayOfMonth ->
+                    val dateStr = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+                    AlertDialog.Builder(this)
+                        .setTitle("设置 $dateStr 的状态")
+                        .setItems(arrayOf("强制打卡 (调休补班)", "强制休息 (法定节假日)")) { _, which ->
+                            val isWork = which == 0
+                            com.lark.autoclock.utils.LocalScheduleManager.addException(this, dateStr, isWork)
+                            Toast.makeText(this, "已添加例外规则", Toast.LENGTH_SHORT).show()
+                            showExceptionsDialog() // 刷新
+                        }
+                        .show()
+                }, calendar.get(java.util.Calendar.YEAR), calendar.get(java.util.Calendar.MONTH), calendar.get(java.util.Calendar.DAY_OF_MONTH)).show()
+            }
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+
+    // ... (secure warning methods) ...
 
     /**
      * 安全锁屏无法被普通应用自动绕过，必须提前提示用户。
@@ -299,6 +356,22 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_time_config, null)
         
+        val cbMon = view.findViewById<android.widget.CheckBox>(R.id.cb_mon)
+        val cbTue = view.findViewById<android.widget.CheckBox>(R.id.cb_tue)
+        val cbWed = view.findViewById<android.widget.CheckBox>(R.id.cb_wed)
+        val cbThu = view.findViewById<android.widget.CheckBox>(R.id.cb_thu)
+        val cbFri = view.findViewById<android.widget.CheckBox>(R.id.cb_fri)
+        val cbSat = view.findViewById<android.widget.CheckBox>(R.id.cb_sat)
+        val cbSun = view.findViewById<android.widget.CheckBox>(R.id.cb_sun)
+        
+        cbMon.isChecked = prefs.getBoolean("cycle_mon", true)
+        cbTue.isChecked = prefs.getBoolean("cycle_tue", true)
+        cbWed.isChecked = prefs.getBoolean("cycle_wed", true)
+        cbThu.isChecked = prefs.getBoolean("cycle_thu", true)
+        cbFri.isChecked = prefs.getBoolean("cycle_fri", true)
+        cbSat.isChecked = prefs.getBoolean("cycle_sat", false)
+        cbSun.isChecked = prefs.getBoolean("cycle_sun", false)
+
         val tvMStart = view.findViewById<TextView>(R.id.tv_morning_start)
         val tvMEnd = view.findViewById<TextView>(R.id.tv_morning_end)
         val tvAStart = view.findViewById<TextView>(R.id.tv_afternoon_start)
@@ -326,7 +399,7 @@ class MainActivity : AppCompatActivity() {
         setupTimePicker(tvAEnd)
 
         val titleView = TextView(this).apply {
-            text = "配置随机打卡时间段"
+            text = "配置基础周期与时间段"
             textSize = 20f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(android.graphics.Color.parseColor("#202124"))
@@ -366,6 +439,13 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 prefs.edit()
+                    .putBoolean("cycle_mon", cbMon.isChecked)
+                    .putBoolean("cycle_tue", cbTue.isChecked)
+                    .putBoolean("cycle_wed", cbWed.isChecked)
+                    .putBoolean("cycle_thu", cbThu.isChecked)
+                    .putBoolean("cycle_fri", cbFri.isChecked)
+                    .putBoolean("cycle_sat", cbSat.isChecked)
+                    .putBoolean("cycle_sun", cbSun.isChecked)
                     .putString("morning_start", mStartStr)
                     .putString("morning_end", mEndStr)
                     .putString("afternoon_start", aStartStr)
@@ -373,8 +453,13 @@ class MainActivity : AppCompatActivity() {
                     .apply()
                 
                 // 重新下发闹钟
-                ClockScheduler.scheduleTodayClockActions(this)
-                Toast.makeText(this, "时间配置已保存，今日闹钟已重新调度！", Toast.LENGTH_SHORT).show()
+                val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
+                if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
+                    ClockScheduler.scheduleTodayClockActions(this)
+                    Toast.makeText(this, "时间配置已保存，今日闹钟已重新调度！", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "时间配置已保存，今天为休息日不排班。", Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("取消", null)
             .show()

@@ -6,6 +6,30 @@
     android:padding="24dp"
     android:background="#FFFFFF">
 
+    <!-- 基础打卡周期 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="基础打卡周期"
+        android:textStyle="bold"
+        android:textColor="#202124"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp"/>
+        
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="4"
+        android:layout_marginBottom="24dp">
+        <CheckBox android:id="@+id/cb_mon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周一"/>
+        <CheckBox android:id="@+id/cb_tue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周二"/>
+        <CheckBox android:id="@+id/cb_wed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周三"/>
+        <CheckBox android:id="@+id/cb_thu" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周四"/>
+        <CheckBox android:id="@+id/cb_fri" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周五"/>
+        <CheckBox android:id="@+id/cb_sat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周六"/>
+        <CheckBox android:id="@+id/cb_sun" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周日"/>
+    </GridLayout>
+
     <!-- 上班时间配置 -->
     <TextView
         android:layout_width="wrap_content"

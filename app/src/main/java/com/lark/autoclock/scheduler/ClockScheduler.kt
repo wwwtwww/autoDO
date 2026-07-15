@@ -88,6 +88,13 @@ object ClockScheduler {
             calendar.add(Calendar.DAY_OF_YEAR, 1)
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e("AutoClock", "未获得精确闹钟权限，无法设置凌晨调度任务！")
+                return
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         } else {

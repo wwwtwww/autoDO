@@ -57,7 +57,22 @@
             android:id="@+id/btn_config_time"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="⚙️  配置随机打卡时间段"
+            android:text="⚙️  配置打卡周期与时间"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            android:textSize="15sp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="#202124"
+            app:strokeColor="#DADCE0"
+            app:strokeWidth="1dp"
+            android:layout_marginBottom="12dp"
+            app:cornerRadius="12dp"/>
+
+        <Button
+            android:id="@+id/btn_manage_exceptions"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="⛱️  例外日期管理 (节假日/补班)"
             android:gravity="start|center_vertical"
             android:paddingStart="20dp"
             android:textSize="15sp"
