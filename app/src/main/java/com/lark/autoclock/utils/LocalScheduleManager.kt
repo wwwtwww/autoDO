@@ -12,6 +12,7 @@ import java.util.Locale
 object LocalScheduleManager {
     private const val PREFS_NAME = "AutoClockPrefs"
     private const val KEY_EXCEPTIONS = "schedule_exceptions"
+    private val exceptionLock = Any()
 
     enum class WorkdayStatus {
         WORKDAY, RESTDAY, UNKNOWN
@@ -63,13 +64,15 @@ object LocalScheduleManager {
      */
     fun addException(context: Context, dateStr: String, isWorkday: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
-        try {
-            val exceptionsObj = JSONObject(exceptionsStr)
-            exceptionsObj.put(dateStr, if (isWorkday) "WORK" else "REST")
-            prefs.edit().putString(KEY_EXCEPTIONS, exceptionsObj.toString()).apply()
-        } catch (e: Exception) {
-            Log.e("AutoClock", "保存例外配置失败: ${e.message}")
+        synchronized(exceptionLock) {
+            val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
+            try {
+                val exceptionsObj = JSONObject(exceptionsStr)
+                exceptionsObj.put(dateStr, if (isWorkday) "WORK" else "REST")
+                prefs.edit().putString(KEY_EXCEPTIONS, exceptionsObj.toString()).apply()
+            } catch (e: Exception) {
+                Log.e("AutoClock", "保存例外配置失败: ${e.message}")
+            }
         }
     }
 
@@ -78,13 +81,15 @@ object LocalScheduleManager {
      */
     fun removeException(context: Context, dateStr: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
-        try {
-            val exceptionsObj = JSONObject(exceptionsStr)
-            exceptionsObj.remove(dateStr)
-            prefs.edit().putString(KEY_EXCEPTIONS, exceptionsObj.toString()).apply()
-        } catch (e: Exception) {
-            Log.e("AutoClock", "移除例外配置失败: ${e.message}")
+        synchronized(exceptionLock) {
+            val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
+            try {
+                val exceptionsObj = JSONObject(exceptionsStr)
+                exceptionsObj.remove(dateStr)
+                prefs.edit().putString(KEY_EXCEPTIONS, exceptionsObj.toString()).apply()
+            } catch (e: Exception) {
+                Log.e("AutoClock", "移除例外配置失败: ${e.message}")
+            }
         }
     }
 
