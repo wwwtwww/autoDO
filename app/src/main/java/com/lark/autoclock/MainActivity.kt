@@ -348,10 +348,11 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val logs = try {
                 logFile.readLines().takeLast(100).reversed().joinToString("<br><br>") { line ->
+                    val escaped = android.text.Html.escapeHtml(line)
                     when {
-                        line.contains("✅") -> "<font color='#34A853'>$line</font>"
-                        line.contains("⚠️") -> "<font color='#EA4335'>$line</font>"
-                        else -> line
+                        line.contains("✅") -> "<font color='#34A853'>$escaped</font>"
+                        line.contains("⚠️") -> "<font color='#EA4335'>$escaped</font>"
+                        else -> escaped
                     }
                 }
             } catch (e: Exception) {
