@@ -111,25 +111,29 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
         val rootNode = rootInActiveWindow ?: return
 
-        retryCount++
-        if (retryCount > MAX_RETRY) return // 超时由 handler 处理
+        try {
+            retryCount++
+            if (retryCount > MAX_RETRY) return // 超时由 handler 处理
 
-        // 收集当前界面所有文字（用于后续多重判定）
-        val allText = collectAllText(rootNode)
+            // 收集当前界面所有文字（用于后续多重判定）
+            val allText = collectAllText(rootNode)
 
-        val matchedText = findFirstSuccessNodeText(rootNode)
-        val confirmed = ClockSuccessMatcher.isConfirmedClockSuccessText(allText)
-        if (matchedText != null && confirmed) {
-            Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
-            val msg = "极速打卡成功！检测到: $matchedText"
-            recordClockResult(confirmed = true, detail = msg)
-            timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消 15 秒超时检测
-            goHomeAndReset()
-            return
-        }
+            val matchedText = findFirstSuccessNodeText(rootNode)
+            val confirmed = ClockSuccessMatcher.isConfirmedClockSuccessText(allText)
+            if (matchedText != null && confirmed) {
+                Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
+                val msg = "极速打卡成功！检测到: $matchedText"
+                recordClockResult(confirmed = true, detail = msg)
+                timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消 15 秒超时检测
+                goHomeAndReset()
+                return
+            }
 
-        if (matchedText != null) {
-            Log.d(TAG, "检测到打卡关键词但缺少考勤上下文，跳过确认: '$matchedText'")
+            if (matchedText != null) {
+                Log.d(TAG, "检测到打卡关键词但缺少考勤上下文，跳过确认: '$matchedText'")
+            }
+        } finally {
+            rootNode.recycle()
         }
     }
 
