@@ -37,6 +37,7 @@ class ClockActionReceiver : BroadcastReceiver() {
             "autoDO::FullWakeLock"
         )
         wakeLock.acquire(60 * 1000L) // 持有 60 秒兜底
+        releaseWakeLock() // 覆盖前先释放旧的 WakeLock，防止短时间内多次触发导致泄漏
         staticWakeLock = wakeLock
         Log.d("AutoClock", "WakeLock 已获取，屏幕应该已被点亮")
 
