@@ -3,49 +3,154 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="#FFFFFF">
+    android:paddingHorizontal="24dp"
+    android:paddingVertical="16dp"
+    android:background="@color/surface_white">
 
-    <!-- 基础打卡周期 -->
+    <!-- 基础打卡周期标题 -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="基础打卡周期"
+        android:text="@string/dialog_title_schedule"
         android:textStyle="bold"
-        android:textColor="#202124"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp"/>
-        
-    <GridLayout
+        android:textColor="@color/text_dark"
+        android:textSize="15sp"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="4"
+        android:text="@string/dialog_desc_schedule"
+        android:textSize="12sp"
+        android:textColor="@color/text_gray"
+        android:layout_marginBottom="12dp"
+        android:lineSpacingMultiplier="1.1" />
+
+    <!-- 星期切换小球 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
         android:layout_marginBottom="24dp">
-        <CheckBox android:id="@+id/cb_mon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周一"/>
-        <CheckBox android:id="@+id/cb_tue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周二"/>
-        <CheckBox android:id="@+id/cb_wed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周三"/>
-        <CheckBox android:id="@+id/cb_thu" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周四"/>
-        <CheckBox android:id="@+id/cb_fri" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周五"/>
-        <CheckBox android:id="@+id/cb_sat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周六"/>
-        <CheckBox android:id="@+id/cb_sun" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="周日"/>
-    </GridLayout>
+
+        <CheckBox
+            android:id="@+id/cb_mon"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_mon"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_tue"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_tue"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_wed"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_wed"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_thu"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_thu"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_fri"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_fri"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_sat"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_sat"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_sun"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:button="@null"
+            android:background="@drawable/bg_week_button"
+            android:textColor="@color/color_week_button_text"
+            android:text="@string/week_sun"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:layout_marginHorizontal="4dp" />
+    </LinearLayout>
 
     <!-- 上班时间配置 -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="上班打卡时段"
+        android:text="@string/dialog_title_morning_random"
         android:textStyle="bold"
-        android:textColor="#202124"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
+        android:textColor="@color/text_dark"
+        android:textSize="15sp"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_desc_morning_random"
+        android:textSize="12sp"
+        android:textColor="@color/text_gray"
+        android:layout_marginBottom="12dp"
+        android:lineSpacingMultiplier="1.1" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="28dp">
+        android:layout_marginBottom="24dp">
 
         <TextView
             android:id="@+id/tv_morning_start"
@@ -57,15 +162,15 @@
             android:background="@drawable/bg_time_picker"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#1A73E8"
-            android:text="07:30"/>
+            android:textColor="@color/primary_blue"
+            android:text="@string/default_morning_start"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="至"
+            android:text="@string/dialog_range_separator"
             android:textSize="14sp"
-            android:textColor="#5F6368"
+            android:textColor="@color/text_gray"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"/>
 
@@ -79,25 +184,35 @@
             android:background="@drawable/bg_time_picker"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#1A73E8"
-            android:text="08:20"/>
+            android:textColor="@color/primary_blue"
+            android:text="@string/default_morning_end"/>
     </LinearLayout>
 
     <!-- 下班时间配置 -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="下班打卡时段"
+        android:text="@string/dialog_title_afternoon_random"
         android:textStyle="bold"
-        android:textColor="#202124"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
+        android:textColor="@color/text_dark"
+        android:textSize="15sp"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_desc_afternoon_random"
+        android:textSize="12sp"
+        android:textColor="@color/text_gray"
+        android:layout_marginBottom="12dp"
+        android:lineSpacingMultiplier="1.1" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
 
         <TextView
             android:id="@+id/tv_afternoon_start"
@@ -109,15 +224,15 @@
             android:background="@drawable/bg_time_picker"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#E27200"
-            android:text="18:00"/>
+            android:textColor="@color/afternoon_orange"
+            android:text="@string/default_afternoon_start"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="至"
+            android:text="@string/dialog_range_separator"
             android:textSize="14sp"
-            android:textColor="#5F6368"
+            android:textColor="@color/text_gray"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"/>
 
@@ -131,8 +246,8 @@
             android:background="@drawable/bg_time_picker"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#E27200"
-            android:text="18:10"/>
+            android:textColor="@color/afternoon_orange"
+            android:text="@string/default_afternoon_end"/>
     </LinearLayout>
 
 </LinearLayout>

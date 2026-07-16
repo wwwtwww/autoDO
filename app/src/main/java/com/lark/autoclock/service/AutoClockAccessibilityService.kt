@@ -18,6 +18,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.lark.autoclock.Constants
 
 class AutoClockAccessibilityService : AccessibilityService() {
 
@@ -40,7 +41,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private val logLock = Any()
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var currentClockType = "未知"
+    private var currentClockType = Constants.CLOCK_TYPE_UNKNOWN
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
@@ -58,8 +59,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            "ACTION_START_CLOCK_IN" -> {
-                startClockIn(intent.getStringExtra("CLOCK_TYPE") ?: "未知")
+            Constants.ACTION_START_CLOCK_IN -> {
+                startClockIn(intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN)
             }
         }
         return super.onStartCommand(intent, flags, startId)
@@ -216,7 +217,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 Log.d(TAG, "流程结束，状态已重置")
                 
                 // 通知 WakeActivity 释放 WakeLock
-                sendBroadcast(Intent("com.lark.autoclock.ACTION_CLOCK_FINISHED").apply {
+                sendBroadcast(Intent(Constants.ACTION_CLOCK_FINISHED).apply {
                     setPackage(packageName)
                 })
             }

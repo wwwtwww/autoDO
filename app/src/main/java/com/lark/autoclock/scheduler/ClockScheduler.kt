@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.Log
 import java.util.Calendar
 import kotlin.random.Random
+import com.lark.autoclock.Constants
 
 object ClockScheduler {
     
@@ -78,7 +79,6 @@ object ClockScheduler {
         )
 
         val calendar = Calendar.getInstance().apply {
-            timeInMillis = System.currentTimeMillis()
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 30)
             set(Calendar.SECOND, 0)
@@ -159,12 +159,12 @@ object ClockScheduler {
 
         when (resolveClockInAction(clockInCal.timeInMillis, System.currentTimeMillis())) {
             ClockAction.SCHEDULE -> {
-                setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis, "上班")
+                setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis, Constants.CLOCK_TYPE_CLOCK_IN)
                 Log.d("AutoClock", "今天上班打卡已随机安排在: ${clockInCal.time}")
             }
             ClockAction.COMPENSATE -> {
                 Log.w("AutoClock", "上班打卡随机时间已过，但在11:30之前，触发即时补打卡流程")
-                triggerImmediateClock(context, "上班")
+                triggerImmediateClock(context, Constants.CLOCK_TYPE_CLOCK_IN)
             }
             ClockAction.SKIP -> {
                 Log.w("AutoClock", "上班打卡随机时间已过且超过11:30补偿截止线，跳过")
@@ -173,12 +173,12 @@ object ClockScheduler {
 
         when (resolveClockOutAction(clockOutCal.timeInMillis, System.currentTimeMillis())) {
             ClockAction.SCHEDULE -> {
-                setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis, "下班")
+                setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis, Constants.CLOCK_TYPE_CLOCK_OUT)
                 Log.d("AutoClock", "今天下班打卡已随机安排在: ${clockOutCal.time}")
             }
             ClockAction.COMPENSATE -> {
                 Log.w("AutoClock", "下班打卡随机时间已过，但在22:00之前，触发即时补打卡流程")
-                triggerImmediateClock(context, "下班")
+                triggerImmediateClock(context, Constants.CLOCK_TYPE_CLOCK_OUT)
             }
             ClockAction.SKIP -> {
                 Log.w("AutoClock", "下班打卡随机时间已过且超过22:00补偿截止线，跳过")
@@ -188,13 +188,13 @@ object ClockScheduler {
 
     private fun triggerImmediateClock(context: Context, clockType: String) {
         val intent = Intent(context, ClockActionReceiver::class.java)
-        intent.putExtra("CLOCK_TYPE", clockType)
+        intent.putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
         context.sendBroadcast(intent)
     }
 
     private fun setExactAlarm(context: Context, alarmManager: AlarmManager, requestCode: Int, timeInMillis: Long, clockType: String) {
         val intent = Intent(context, ClockActionReceiver::class.java)
-        intent.putExtra("CLOCK_TYPE", clockType)
+        intent.putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
         val pendingIntent = PendingIntent.getBroadcast(
             context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

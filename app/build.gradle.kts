@@ -11,15 +11,19 @@ android {
         applicationId = "com.lark.autoclock"
         minSdk = 26
         targetSdk = 34
-        // 动态生成 versionCode，解决每次安装需要卸载旧版的问题
-        val timestamp = (System.currentTimeMillis() / 1000).toInt()
-        versionCode = timestamp
-        versionName = "1.0.$timestamp"
+        versionCode = 1
+        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        getByName("debug") {
+            // debug 变体使用动态版本号，避免频繁卸载旧包
+            val timestamp = (System.currentTimeMillis() / 1000).toInt()
+            versionCode = timestamp
+            versionName = "1.0.$timestamp"
+        }
         getByName("release") {
             isMinifyEnabled = false
             proguardFiles(

@@ -70,7 +70,7 @@ class WakeActivity : Activity() {
         )
         wakeLock?.acquire(30 * 1000L)
 
-        val chainAction = intent.getStringExtra("CHAIN_ACTION")
+        val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         Log.d("WakeActivity", "链式动作: $chainAction")
 
         mainHandler.postDelayed({
@@ -81,15 +81,15 @@ class WakeActivity : Activity() {
                 return@postDelayed
             }
 
-            if (chainAction == "ACTION_START_CLOCK_IN") {
-                val clockType = intent.getStringExtra("CLOCK_TYPE") ?: "未知"
+            if (chainAction == Constants.ACTION_START_CLOCK_IN) {
+                val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
                 Log.d("WakeActivity", "正在触发飞书打卡流... 类型: $clockType")
                 val service = AutoClockAccessibilityService.instance
                 if (service != null) {
                     service.startClockIn(clockType)
 
                     // 注册广播监听服务结束
-                    val filter = IntentFilter("com.lark.autoclock.ACTION_CLOCK_FINISHED")
+                    val filter = IntentFilter(Constants.ACTION_CLOCK_FINISHED)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
                     } else {
@@ -171,14 +171,14 @@ class WakeActivity : Activity() {
         Log.d("WakeActivity", "onNewIntent: 收到新 Intent，重置并重新触发打卡流程")
         mainHandler.removeCallbacksAndMessages(null)
 
-        val chainAction = intent.getStringExtra("CHAIN_ACTION")
-        if (chainAction == "ACTION_START_CLOCK_IN") {
-            val clockType = intent.getStringExtra("CLOCK_TYPE") ?: "未知"
+        val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
+        if (chainAction == Constants.ACTION_START_CLOCK_IN) {
+            val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
             val service = AutoClockAccessibilityService.instance
             if (service != null) {
                 service.startClockIn(clockType)
                 if (!isReceiverRegistered) {
-                    val filter = IntentFilter("com.lark.autoclock.ACTION_CLOCK_FINISHED")
+                    val filter = IntentFilter(Constants.ACTION_CLOCK_FINISHED)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
                     } else {

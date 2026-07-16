@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 1. 跳转无障碍设置
-        findViewById<Button>(R.id.btn_enable_accessibility).setOnClickListener {
+        findViewById<View>(R.id.btn_enable_accessibility).setOnClickListener {
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             startActivity(intent)
         }
@@ -63,10 +63,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_test_unlock).setOnClickListener {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                Toast.makeText(this, "测试亮屏需要精确闹钟权限，请在设置中授予！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_need_exact_alarm_test), Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
-            Toast.makeText(this, "倒计时 10 秒钟，请立刻按电源键锁屏！", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.toast_lock_screen_countdown), Toast.LENGTH_LONG).show()
 
             val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java)
             val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -96,15 +96,15 @@ class MainActivity : AppCompatActivity() {
             val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
             val serviceName = packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
             if (enabledServices?.contains(serviceName) != true) {
-                Toast.makeText(this, "测试打卡失败：请先开启 autoDO 无障碍服务！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_test_no_accessibility), Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
-            Toast.makeText(this, "正在启动极速打卡测试流...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_test_clock_starting), Toast.LENGTH_SHORT).show()
             val service = com.lark.autoclock.service.AutoClockAccessibilityService.instance
             if (service != null) {
                 service.startClockIn("测试")
             } else {
-                Toast.makeText(this, "无障碍服务未连接，请重新开启后再试", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_accessibility_not_connected), Toast.LENGTH_LONG).show()
             }
         }
 
@@ -112,19 +112,19 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_schedule_tasks).setOnClickListener {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                Toast.makeText(this, "激活任务需要精确闹钟权限，请在设置中授予！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_need_exact_alarm_activate), Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             
             ClockScheduler.scheduleDailySetup(this)
-            Toast.makeText(this, "守护进程已启动，请将手机放置在充电座上即可，无需其他操作。", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.toast_guard_started), Toast.LENGTH_LONG).show()
 
             val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
             if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
                 ClockScheduler.scheduleTodayClockActions(this)
-                Toast.makeText(this, "今天为打卡日，今日的随机打卡闹钟已下发！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_today_scheduled), Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(this, "本地配置：今天休息，不执行打卡任务。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_today_rest), Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -143,12 +143,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 7. 自启动权限管理
-        findViewById<Button>(R.id.btn_auto_start).setOnClickListener {
+        findViewById<View>(R.id.btn_auto_start).setOnClickListener {
             openAutoStartSettings()
         }
 
         // 8. 电池优化管理
-        findViewById<Button>(R.id.btn_battery_optimization).setOnClickListener {
+        findViewById<View>(R.id.btn_battery_optimization).setOnClickListener {
             requestIgnoreBatteryOptimization()
         }
 
@@ -168,13 +168,13 @@ class MainActivity : AppCompatActivity() {
                 )
                 // 联动预警：无障碍服务未连接时给出明确警示，避免只开保活却无法打卡
                 if (com.lark.autoclock.service.AutoClockAccessibilityService.instance == null) {
-                    Toast.makeText(this, "⚠️ 前台保活已开启，但无障碍打卡服务未连接！请同时去开启无障碍，否则打卡无法工作！", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_keepalive_no_accessibility), Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "前台保活已开启，常驻通知将防止进程被挂起", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_keepalive_on), Toast.LENGTH_LONG).show()
                 }
             } else {
                 stopService(Intent(this, com.lark.autoclock.service.KeepAliveService::class.java))
-                Toast.makeText(this, "前台保活已关闭", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_keepalive_off), Toast.LENGTH_SHORT).show()
             }
             updateKeepAliveButtonUI(btnKeepAlive)
         }
@@ -184,14 +184,14 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val isEnabled = prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
         if (isEnabled) {
-            button.text = "🔔  前台保活：已开启（点击关闭）"
+            button.text = getString(R.string.btn_keepalive_on)
             button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                android.graphics.Color.parseColor("#FFF3E0")
+                getColor(R.color.keepalive_on_bg)
             )
         } else {
-            button.text = "🔔  前台保活通知（遇遗漏再开启）"
+            button.text = getString(R.string.btn_keepalive)
             button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                android.graphics.Color.parseColor("#FFF8E1")
+                getColor(R.color.keepalive_off_bg)
             )
         }
     }
@@ -229,7 +229,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (!success) {
-            Toast.makeText(this, "未能自动打开自启动管理，请在设置中手动开启", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.toast_autostart_failed), Toast.LENGTH_LONG).show()
             try {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 intent.data = Uri.parse("package:$packageName")
@@ -244,40 +244,40 @@ class MainActivity : AppCompatActivity() {
         val exceptions = com.lark.autoclock.utils.LocalScheduleManager.getAllExceptions(this)
         val sortedKeys = exceptions.keys.sortedDescending()
         val items = sortedKeys.map { date ->
-            val type = if (exceptions[date] == "WORK") "强制打卡 (补班)" else "强制休息 (节假日)"
+            val type = if (exceptions[date] == "WORK") getString(R.string.exception_type_work_short) else getString(R.string.exception_type_rest_short)
             "$date  -  $type"
         }.toTypedArray()
 
         AlertDialog.Builder(this)
-            .setTitle("例外日期管理")
+            .setTitle(getString(R.string.dialog_title_exceptions))
             .setItems(items) { _, which ->
                 val date = sortedKeys[which]
                 AlertDialog.Builder(this)
-                    .setTitle("删除例外")
-                    .setMessage("确定要删除 $date 的例外配置吗？")
-                    .setPositiveButton("删除") { _, _ ->
+                    .setTitle(getString(R.string.dialog_title_delete_exception))
+                    .setMessage(getString(R.string.dialog_msg_delete_exception, date))
+                    .setPositiveButton(getString(R.string.dialog_btn_delete)) { _, _ ->
                         com.lark.autoclock.utils.LocalScheduleManager.removeException(this, date)
                         showExceptionsDialog() // 刷新
                     }
-                    .setNegativeButton("取消", null)
+                    .setNegativeButton(getString(R.string.dialog_btn_cancel), null)
                     .show()
             }
-            .setPositiveButton("添加例外") { _, _ ->
+            .setPositiveButton(getString(R.string.dialog_btn_add_exception)) { _, _ ->
                 val calendar = java.util.Calendar.getInstance()
                 android.app.DatePickerDialog(this, { _, year, month, dayOfMonth ->
                     val dateStr = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
                     AlertDialog.Builder(this)
-                        .setTitle("设置 $dateStr 的状态")
-                        .setItems(arrayOf("强制打卡 (调休补班)", "强制休息 (法定节假日)")) { _, which ->
+                        .setTitle(getString(R.string.dialog_title_set_status, dateStr))
+                        .setItems(arrayOf(getString(R.string.exception_type_work), getString(R.string.exception_type_rest))) { _, which ->
                             val isWork = which == 0
                             com.lark.autoclock.utils.LocalScheduleManager.addException(this, dateStr, isWork)
-                            Toast.makeText(this, "已添加例外规则", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.toast_exception_added), Toast.LENGTH_SHORT).show()
                             showExceptionsDialog() // 刷新
                         }
                         .show()
                 }, calendar.get(java.util.Calendar.YEAR), calendar.get(java.util.Calendar.MONTH), calendar.get(java.util.Calendar.DAY_OF_MONTH)).show()
             }
-            .setNegativeButton("关闭", null)
+            .setNegativeButton(getString(R.string.dialog_btn_close), null)
             .show()
     }
 
@@ -288,16 +288,16 @@ class MainActivity : AppCompatActivity() {
      */
     private fun showSecureLockscreenWarning() {
         AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
-            .setTitle("锁屏密码会阻止自动打卡")
-            .setMessage("当前设备启用了 PIN、图案、指纹、人脸或其他安全锁屏。Android 不允许应用自动绕过这些验证。若要在锁屏状态自动打卡，请将测试手机锁屏方式改为无密码或滑动解锁。")
-            .setPositiveButton("去锁屏设置") { _, _ ->
+            .setTitle(getString(R.string.dialog_title_lockscreen_warning))
+            .setMessage(getString(R.string.dialog_msg_lockscreen_warning))
+            .setPositiveButton(getString(R.string.dialog_btn_go_lockscreen_settings)) { _, _ ->
                 try {
                     startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
                 } catch (e: Exception) {
-                    Toast.makeText(this, "请手动打开系统锁屏设置", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_lock_screen_manual), Toast.LENGTH_LONG).show()
                 }
             }
-            .setNegativeButton("我知道了", null)
+            .setNegativeButton(getString(R.string.dialog_btn_got_it), null)
             .show()
     }
 
@@ -306,7 +306,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun requestFullScreenIntentPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            Toast.makeText(this, "请允许全屏通知，否则锁屏时可能无法唤醒打卡界面", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.toast_full_screen_notification), Toast.LENGTH_LONG).show()
             try {
                 val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
                     data = Uri.parse("package:$packageName")
@@ -345,6 +345,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 实时更新各个卡片上的权限状态和顶部服务状态看板
+        updateStatusAndPermissionsUI()
         // 每次回到主界面都检查一次电池优化状态，但使用 SharedPreferences 避免无限弹窗
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -377,7 +379,7 @@ class MainActivity : AppCompatActivity() {
             
             // 检查悬浮窗权限（用于后台启动 Activity 唤醒屏幕）
             if (!Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "请开启悬浮窗权限，否则锁屏打卡将无法唤醒屏幕！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.toast_overlay_permission), Toast.LENGTH_LONG).show()
                 val intent = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:$packageName")
@@ -390,7 +392,7 @@ class MainActivity : AppCompatActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
                 if (!alarmManager.canScheduleExactAlarms()) {
-                    Toast.makeText(this, "请授权精确闹钟权限，否则打卡闹钟将无法准时触发！", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_exact_alarm_permission), Toast.LENGTH_LONG).show()
                     try {
                         val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                             data = Uri.parse("package:$packageName")
@@ -408,7 +410,7 @@ class MainActivity : AppCompatActivity() {
     private fun showLogsDialog() {
         val logFile = File(filesDir, "clock_log.txt")
         if (!logFile.exists() || logFile.length() == 0L) {
-            Toast.makeText(this, "暂无打卡记录", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_no_logs), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -423,7 +425,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
-                "读取日志失败: ${e.message}"
+                getString(R.string.toast_read_log_failed, e.message)
             }
 
             withContext(Dispatchers.Main) {
@@ -443,25 +445,25 @@ class MainActivity : AppCompatActivity() {
                     textSize = 13f
                     typeface = android.graphics.Typeface.MONOSPACE
                     setLineSpacing(10f, 1.2f)
-                    setTextColor(android.graphics.Color.parseColor("#3C4043"))
+                    setTextColor(getColor(R.color.log_text_gray))
                 }
                 scrollView.addView(textView)
 
                 val titleView = TextView(this@MainActivity).apply {
-                    text = "历史打卡记录"
+                    text = getString(R.string.dialog_title_logs)
                     textSize = 20f
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    setTextColor(android.graphics.Color.parseColor("#202124"))
+                    setTextColor(getColor(R.color.text_dark))
                     setPadding(50, 50, 50, 10)
                 }
 
                 AlertDialog.Builder(this@MainActivity, android.R.style.Theme_Material_Light_Dialog_Alert)
                     .setCustomTitle(titleView)
                     .setView(scrollView)
-                    .setPositiveButton("关闭", null)
-                    .setNeutralButton("清空记录") { _, _ ->
+                    .setPositiveButton(getString(R.string.dialog_btn_close), null)
+                    .setNeutralButton(getString(R.string.dialog_btn_clear_logs)) { _, _ ->
                         if (logFile.delete()) {
-                            Toast.makeText(this@MainActivity, "记录已清空", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
                         }
                     }
                     .show()
@@ -519,17 +521,17 @@ class MainActivity : AppCompatActivity() {
         setupTimePicker(tvAEnd)
 
         val titleView = TextView(this).apply {
-            text = "配置基础周期与时间段"
+            text = getString(R.string.dialog_title_time_config)
             textSize = 20f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(android.graphics.Color.parseColor("#202124"))
+            setTextColor(getColor(R.color.text_dark))
             setPadding(50, 50, 50, 10)
         }
 
         AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
             .setCustomTitle(titleView)
             .setView(view)
-            .setPositiveButton("保存并生效") { _, _ ->
+            .setPositiveButton(getString(R.string.dialog_btn_save_apply)) { _, _ ->
                 val mStartStr = tvMStart.text.toString()
                 val mEndStr = tvMEnd.text.toString()
                 val aStartStr = tvAStart.text.toString()
@@ -550,11 +552,11 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (!isTimeValid(mStartStr, mEndStr)) {
-                    Toast.makeText(this, "保存失败：上午打卡结束时间必须晚于开始时间！", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_save_failed_morning), Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
                 if (!isTimeValid(aStartStr, aEndStr)) {
-                    Toast.makeText(this, "保存失败：下午打卡结束时间必须晚于开始时间！", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.toast_save_failed_afternoon), Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
 
@@ -576,12 +578,109 @@ class MainActivity : AppCompatActivity() {
                 val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
                 if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
                     ClockScheduler.scheduleTodayClockActions(this)
-                    Toast.makeText(this, "时间配置已保存，今日闹钟已重新调度！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_time_config_saved_scheduled), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this, "时间配置已保存，今天为休息日不排班。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_time_config_saved_rest), Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.dialog_btn_cancel), null)
             .show()
+    }
+
+    private fun updateStatusAndPermissionsUI() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        // 1. 无障碍权限状态
+        val isAccessibilityEnabled = isAccessibilityServiceEnabled(this)
+        val tvAccessibilityStatus = findViewById<TextView>(R.id.tv_status_accessibility)
+        if (isAccessibilityEnabled) {
+            tvAccessibilityStatus.text = getString(R.string.status_authorized)
+            tvAccessibilityStatus.setTextColor(getColor(R.color.status_green))
+        } else {
+            tvAccessibilityStatus.text = getString(R.string.status_unauthorized)
+            tvAccessibilityStatus.setTextColor(getColor(R.color.status_red))
+        }
+
+        // 2. 电池优化白名单状态
+        val isBatteryOptimizationIgnored = isIgnoringBatteryOptimizations(this)
+        val tvBatteryStatus = findViewById<TextView>(R.id.tv_status_battery)
+        if (isBatteryOptimizationIgnored) {
+            tvBatteryStatus.text = getString(R.string.status_battery_closed)
+            tvBatteryStatus.setTextColor(getColor(R.color.status_green))
+        } else {
+            tvBatteryStatus.text = getString(R.string.status_not_closed)
+            tvBatteryStatus.setTextColor(getColor(R.color.status_red))
+        }
+
+        // 3. 悬浮窗权限状态
+        val isOverlayEnabled = Settings.canDrawOverlays(this)
+        val tvOverlayStatus = findViewById<TextView>(R.id.tv_status_overlay)
+        if (isOverlayEnabled) {
+            tvOverlayStatus.text = getString(R.string.status_authorized)
+            tvOverlayStatus.setTextColor(getColor(R.color.status_green))
+        } else {
+            tvOverlayStatus.text = getString(R.string.status_unauthorized)
+            tvOverlayStatus.setTextColor(getColor(R.color.status_red))
+        }
+
+        // 4. 精确闹钟权限状态
+        val isAlarmEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+        val tvAlarmStatus = findViewById<TextView>(R.id.tv_status_alarm)
+        if (isAlarmEnabled) {
+            tvAlarmStatus.text = getString(R.string.status_ready)
+            tvAlarmStatus.setTextColor(getColor(R.color.status_green))
+        } else {
+            tvAlarmStatus.text = getString(R.string.status_not_ready)
+            tvAlarmStatus.setTextColor(getColor(R.color.status_red))
+        }
+
+        // 5. 全局状态卡片更新
+        val isServiceRunning = isAccessibilityEnabled // 无障碍开启即代表服务在后台激活
+        val tvGlobalStatus = findViewById<TextView>(R.id.tv_global_status)
+        val tvGlobalStatusDesc = findViewById<TextView>(R.id.tv_global_status_desc)
+        val globalStatusCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_global_status)
+
+        if (isServiceRunning) {
+            val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
+            if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
+                val mStart = prefs.getString("morning_start", "08:00")
+                val mEnd = prefs.getString("morning_end", "08:10")
+                val aStart = prefs.getString("afternoon_start", "18:00")
+                val aEnd = prefs.getString("afternoon_end", "18:10")
+                tvGlobalStatus.text = getString(R.string.status_global_scheduled)
+                tvGlobalStatus.setTextColor(getColor(R.color.success_green))
+                tvGlobalStatusDesc.text = getString(R.string.status_desc_global_scheduled, mStart, mEnd, aStart, aEnd)
+                globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.success_green_bg)))
+            } else {
+                tvGlobalStatus.text = getString(R.string.status_global_rest)
+                tvGlobalStatus.setTextColor(getColor(R.color.primary_blue))
+                tvGlobalStatusDesc.text = getString(R.string.status_desc_global_rest)
+                globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.light_blue_bg)))
+            }
+        } else {
+            tvGlobalStatus.text = getString(R.string.status_global_not_running)
+            tvGlobalStatus.setTextColor(getColor(R.color.error_red_dark))
+            tvGlobalStatusDesc.text = getString(R.string.status_desc_global_not_running)
+            globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.error_bg)))
+        }
+    }
+
+    private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        val serviceName = context.packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
+        return enabledServices?.contains(serviceName) == true
+    }
+
+    private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            return pm.isIgnoringBatteryOptimizations(context.packageName)
+        }
+        return true
     }
 }
