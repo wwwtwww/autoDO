@@ -19,10 +19,8 @@ android {
 
     buildTypes {
         getByName("debug") {
-            // debug 变体使用动态版本号，避免频繁卸载旧包
-            val timestamp = (System.currentTimeMillis() / 1000).toInt()
-            versionCode = timestamp
-            versionName = "1.0.$timestamp"
+            // 注意：BuildType 中无法直接设置 versionCode/versionName。
+            // Android Studio 会默认使用 `adb install -r`，只要签名相同，即便 versionCode 没变也能直接覆盖安装。
         }
         getByName("release") {
             isMinifyEnabled = false
