@@ -11,8 +11,9 @@ import kotlin.random.Random
 
 object ClockScheduler {
     
-    // 真实业务中，这些时间应该从 SharedPreferences 中读取
-    private const val PREFS_NAME = "AutoClockPrefs"
+    // 共享 SharedPreferences 常量，供 BootReceiver / MainActivity 等组件统一引用
+    const val PREFS_NAME = "AutoClockPrefs"
+    const val KEY_KEEPALIVE_ENABLED = "keepalive_enabled"
 
     /**
      * 打卡闹钟的决策结果

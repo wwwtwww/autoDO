@@ -27,11 +27,11 @@ import java.io.File
 import com.lark.autoclock.scheduler.ClockScheduler
 
 class MainActivity : AppCompatActivity() {
-    private val PREFS_NAME = "AutoClockPrefs"
+    private val PREFS_NAME = ClockScheduler.PREFS_NAME
     private val KEY_BATTERY_PROMPTED = "battery_prompted"
     private val KEY_LOCKSCREEN_PROMPTED = "lockscreen_prompted"
     private val KEY_FULL_SCREEN_PROMPTED = "full_screen_prompted"
-    private val KEY_KEEPALIVE_ENABLED = "keepalive_enabled"
+    private val KEY_KEEPALIVE_ENABLED = ClockScheduler.KEY_KEEPALIVE_ENABLED
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -166,10 +166,11 @@ class MainActivity : AppCompatActivity() {
                     this,
                     Intent(this, com.lark.autoclock.service.KeepAliveService::class.java)
                 )
-                Toast.makeText(this, "前台保活已开启，常驻通知将防止进程被挂起", Toast.LENGTH_LONG).show()
-                // 联动判断：无障碍服务未启用时追加警示
+                // 联动预警：无障碍服务未连接时给出明确警示，避免只开保活却无法打卡
                 if (com.lark.autoclock.service.AutoClockAccessibilityService.instance == null) {
-                    Toast.makeText(this, "前台保活已开启，但无障碍服务未启用！请前往无障碍页面开启", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "⚠️ 前台保活已开启，但无障碍打卡服务未连接！请同时去开启无障碍，否则打卡无法工作！", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "前台保活已开启，常驻通知将防止进程被挂起", Toast.LENGTH_LONG).show()
                 }
             } else {
                 stopService(Intent(this, com.lark.autoclock.service.KeepAliveService::class.java))

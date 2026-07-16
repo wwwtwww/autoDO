@@ -106,7 +106,8 @@ sequenceDiagram
 
 ### 5.1 稳定性与保活
 * **硬件级定时器**：使用 `AlarmManager.setExactAndAllowWhileIdle()` 机制，即使手机处于 Android Doze（低功耗待机）模式，也能准时唤醒。
-* **无障碍系统级保活**：由于核心逻辑依附于 Android 原生的 `AccessibilityService`，系统默认会赋予极高的进程优先级（OOM_ADJ）。配合电池优化白名单与自启动权限，即可实现免后台通知的静默强力保活。
+* **无障碍系统级保活（默认）**：由于核心逻辑依附于 Android 原生的 `AccessibilityService`，系统默认会赋予极高的进程优先级（OOM_ADJ）。配合电池优化白名单与自启动权限，即可实现免后台通知的静默强力保活。
+* **可选前台保活通知（第二层保活）**：针对部分极其严格的 Android 13+ 定制 ROM（如 HarmonyOS、深度定制 ColorOS）在长时间 Doze 模式下可能挂起无障碍服务进程的问题，App 主界面提供手动开关，用户可按需开启一个低优先级常驻通知的前台服务（`foregroundServiceType=specialUse`），进一步维持进程优先级，降低被挂起/墓碑化的风险。
 
 ### 5.2 安全性与隐私
 * **完全本地运行 (100% Offline)**：App 没有任何网络通信需求，包括不需要联网查询 API。用户的个人数据、飞书打卡记录均完全留在手机本地，不存在任何泄漏风险，彻底规避了网络嗅探或拦截问题。

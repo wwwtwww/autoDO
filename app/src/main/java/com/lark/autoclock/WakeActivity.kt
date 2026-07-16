@@ -98,6 +98,8 @@ class WakeActivity : Activity() {
                     isReceiverRegistered = true
                 } else {
                     Log.e("WakeActivity", "无障碍服务未连接（可能未在系统设置中开启），打卡流程无法执行")
+                    releaseLocksAndFinish()
+                    return@postDelayed
                 }
 
                 // 延迟释放 WakeLock 和关闭 Activity（兜底超时放宽到 20 秒）
@@ -112,6 +114,7 @@ class WakeActivity : Activity() {
     }
 
     private fun releaseLocksAndFinish() {
+        if (isFinishing) return
         com.lark.autoclock.scheduler.ClockActionReceiver.releaseWakeLock()
         if (wakeLock?.isHeld == true) {
             try {
@@ -157,6 +160,44 @@ class WakeActivity : Activity() {
             notificationManager.cancel(com.lark.autoclock.scheduler.ClockActionReceiver.WAKE_NOTIFICATION_ID)
         } catch (e: Exception) {
             Log.e("WakeActivity", "onDestroy 清除唤醒通知异常: ${e.message}")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (isFinishing) return
+
+        Log.d("WakeActivity", "onNewIntent: 收到新 Intent，重置并重新触发打卡流程")
+        mainHandler.removeCallbacksAndMessages(null)
+
+        val chainAction = intent.getStringExtra("CHAIN_ACTION")
+        if (chainAction == "ACTION_START_CLOCK_IN") {
+            val clockType = intent.getStringExtra("CLOCK_TYPE") ?: "未知"
+            val service = AutoClockAccessibilityService.instance
+            if (service != null) {
+                service.startClockIn(clockType)
+                if (!isReceiverRegistered) {
+                    val filter = IntentFilter("com.lark.autoclock.ACTION_CLOCK_FINISHED")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                    } else {
+                        registerReceiver(finishReceiver, filter)
+                    }
+                    isReceiverRegistered = true
+                }
+            } else {
+                Log.e("WakeActivity", "无障碍服务未连接（可能未在系统设置中开启），打卡流程无法执行")
+                releaseLocksAndFinish()
+                return
+            }
+
+            mainHandler.postDelayed({
+                Log.w("WakeActivity", "等待打卡广播超时 (20s)，触发兜底释放")
+                releaseLocksAndFinish()
+            }, 20000)
+        } else {
+            releaseLocksAndFinish()
         }
     }
 }
