@@ -1,7 +1,18 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.LarkAutoClock" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_700</item>
-        <item name="colorAccent">@color/teal_200</item>
+    <!--
+        强制使用 Light 主题，彻底避免 DayNight 在暗色模式下
+        自动将 MaterialCardView 背景翻转为深灰色，导致浅色文字不可读的问题。
+        本应用为单机工具型 App，不需要暗色模式适配。
+    -->
+    <style name="Theme.LarkAutoClock" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorPrimaryDark">@color/primary_blue</item>
+        <item name="colorAccent">@color/primary_blue</item>
+        <!-- 全局窗口背景色 -->
+        <item name="android:windowBackground">@color/app_background</item>
+        <!-- 默认状态栏颜色 -->
+        <item name="android:statusBarColor">@color/surface_white</item>
+        <!-- 亮色状态栏，深色图标 -->
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
     </style>
 </resources>

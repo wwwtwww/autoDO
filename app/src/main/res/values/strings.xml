@@ -6,8 +6,8 @@
     <string name="app_subtitle">打卡智能调度中心</string>
 
     <!-- 状态看板 -->
-    <string name="status_default">自动打卡守护未运行 🔴</string>
-    <string name="status_desc_default">无障碍权限尚未授予。请在下方开启无障碍服务以激活打卡守护调度程序。</string>
+    <string name="status_default">自动打卡尚未启用 🔴</string>
+    <string name="status_desc_default">请先在下方开启「无障碍服务」，启用后即可全自动定时打卡。</string>
 
     <!-- 分组标题 -->
     <string name="section_core">打卡日程控制</string>
@@ -15,22 +15,22 @@
     <string name="section_test">开发者与测试工具（调试专用）</string>
 
     <!-- 核心功能按钮 -->
-    <string name="btn_start_guard">🚀  开启每日自动打卡守护</string>
+    <string name="btn_start_guard">🚀  立即启用今日自动打卡</string>
     <string name="btn_config_time">📅  配置打卡周期与时间</string>
     <string name="btn_manage_exceptions">⛱️  管理例外日期 (调休与节假日)</string>
     <string name="btn_view_logs">📝  查看历史打卡日志</string>
 
     <!-- 权限行标题与描述 -->
     <string name="title_accessibility">🛡️  开启系统无障碍服务</string>
-    <string name="desc_accessibility">用于后台自动检索元素模拟打卡</string>
+    <string name="desc_accessibility">核心权限，用于自动识别飞书界面并点击打卡</string>
     <string name="title_auto_start">🔄  允许开机自启动权限</string>
-    <string name="desc_auto_start">防手机重启或断电恢复后守护失效</string>
+    <string name="desc_auto_start">手机重启后无需手动打开 App 即可恢复打卡</string>
     <string name="title_battery">🔋  关闭系统电池能耗优化</string>
-    <string name="desc_battery">忽略待机优化白名单，防止后台被杀</string>
+    <string name="desc_battery">防止系统在后台自动关闭本应用</string>
     <string name="title_overlay">💬  开启系统悬浮窗权限</string>
-    <string name="desc_overlay">支持后台唤醒并亮屏展示解锁 Activity</string>
+    <string name="desc_overlay">允许在锁屏时弹出打卡界面并自动亮屏</string>
     <string name="title_alarm">⏰  精确闹钟触发权限 (Android 12+)</string>
-    <string name="desc_alarm">确保随机打卡定时器能在后台精准按时被唤醒</string>
+    <string name="desc_alarm">让定时打卡闹钟能在后台精准按时触发</string>
     <string name="btn_keepalive">🔔  前台保活通知（遇遗漏再开启）</string>
 
     <!-- 权限状态标签（初始值，运行时动态更新） -->
@@ -47,7 +47,7 @@
 
     <!-- 时间配置对话框 -->
     <string name="dialog_title_schedule">打卡周期设置</string>
-    <string name="dialog_desc_schedule">选中日期将激活自动打卡。其余日期调度引擎将保持休眠，防错漏与误打卡。</string>
+    <string name="dialog_desc_schedule">选中的日期会自动打卡，未选中的日期将跳过，不会误打卡。</string>
     <string name="week_mon">一</string>
     <string name="week_tue">二</string>
     <string name="week_wed">三</string>
@@ -56,9 +56,9 @@
     <string name="week_sat">六</string>
     <string name="week_sun">日</string>
     <string name="dialog_title_morning_random">上班打卡随机时段</string>
-    <string name="dialog_desc_morning_random">调度器将在此范围内自动挑选一个时间点触发（建议覆盖上班签到时间）。</string>
+    <string name="dialog_desc_morning_random">系统将在此时间段内随机选一个时刻自动打卡，建议覆盖正常上班时间。</string>
     <string name="dialog_title_afternoon_random">下班打卡随机时段</string>
-    <string name="dialog_desc_afternoon_random">调度器将在此范围内自动挑选一个时间点触发（建议在下班后的合理区间内）。</string>
+    <string name="dialog_desc_afternoon_random">系统将在此时间段内随机选一个时刻自动打卡，建议设在下班后的合理时间。</string>
     <string name="dialog_range_separator">至</string>
     <string name="default_morning_start">07:30</string>
     <string name="default_morning_end">08:20</string>
@@ -72,10 +72,10 @@
     <string name="toast_test_clock_starting">正在启动极速打卡测试流…</string>
     <string name="toast_accessibility_not_connected">无障碍服务未连接，请重新开启后再试</string>
     <string name="toast_need_exact_alarm_activate">激活任务需要精确闹钟权限，请在设置中授予！</string>
-    <string name="toast_guard_started">守护进程已启动，请将手机放置在充电座上即可，无需其他操作。</string>
+    <string name="toast_guard_started">已启用！把手机放好即可，无需其他操作。</string>
     <string name="toast_today_scheduled">今天为打卡日，今日的随机打卡闹钟已下发！</string>
     <string name="toast_today_rest">本地配置：今天休息，不执行打卡任务。</string>
-    <string name="toast_keepalive_no_accessibility">⚠️ 前台保活已开启，但无障碍打卡服务未连接！请同时去开启无障碍，否则打卡无法工作！</string>
+    <string name="toast_keepalive_no_accessibility">⚠️ 保活已开启，但无障碍打卡服务未连接！请同时去开启无障碍，否则打卡无法工作！</string>
     <string name="toast_keepalive_on">前台保活已开启，常驻通知将防止进程被挂起</string>
     <string name="toast_keepalive_off">前台保活已关闭</string>
     <string name="toast_autostart_failed">未能自动打开自启动管理，请在设置中手动开启</string>
@@ -106,12 +106,12 @@
     <string name="status_authorized">已授权 🟢</string>
     <string name="status_battery_closed">已关闭限制 🟢</string>
     <string name="status_ready">已就绪 🟢</string>
-    <string name="status_global_scheduled">自动打卡已安排 🟢</string>
+    <string name="status_global_scheduled">今日打卡已安排 🟢</string>
     <string name="status_global_rest">今天休息，打卡已避让 💤</string>
     <string name="status_global_not_running">打卡服务未完全运行 🔴</string>
     <string name="status_desc_global_scheduled">今天为打卡工作日。打卡随机时间已生成：\n☀️ 上午打卡在 %1$s ~ %2$s 之间\n🌙 下午打卡在 %3$s ~ %4$s 之间</string>
-    <string name="status_desc_global_rest">今天为配置的例外休息日或周末，调度程序已自动避让，不执行打卡闹钟。</string>
-    <string name="status_desc_global_not_running">核心无障碍权限未授予，自动打卡守护进程无法读取屏幕和执行指令。</string>
+    <string name="status_desc_global_rest">今天为休息日或节假日，不会执行自动打卡。</string>
+    <string name="status_desc_global_not_running">无障碍权限未开启，自动打卡无法工作。请在下方点击开启。</string>
 
     <!-- 补充 Toast 与 Dialog 文案 -->
     <string name="toast_full_screen_notification">请允许全屏通知，否则锁屏时可能无法唤醒打卡界面</string>
