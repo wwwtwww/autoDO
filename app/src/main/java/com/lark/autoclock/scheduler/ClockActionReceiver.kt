@@ -53,7 +53,7 @@ class ClockActionReceiver : BroadcastReceiver() {
             PowerManager.ON_AFTER_RELEASE,
             "autoDO::FullWakeLock"
         )
-        wakeLock.acquire(60 * 1000L) // 持有 60 秒兜底
+        wakeLock.acquire(Constants.WAKELOCK_ACQUIRE_DURATION) // 持有配置的兜底时长
         swapWakeLock(wakeLock) // 原子性释放旧锁并赋新锁，防止并发泄漏
         Log.d("AutoClock", "WakeLock 已获取，屏幕应该已被点亮")
 

@@ -36,7 +36,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var retryCount = 0
     private var lastScanAt = 0L
-    private val MAX_RETRY = 30 // 最大重试次数 30 次（结合 500ms 扫描间隔，即 15 秒超时）
+    private val MAX_RETRY = (Constants.TIMEOUT_ACCESSIBILITY_SCAN / MIN_SCAN_INTERVAL_MS).toInt()
     private var timeoutRunnable: Runnable? = null
     private val logLock = Any()
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
@@ -82,13 +82,13 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
         timeoutRunnable = Runnable {
             if (currentState == ClockState.WAIT_CONFIRM) {
-                Log.w(TAG, "等待 15 秒未检测到明确的打卡确认文字")
+                Log.w(TAG, "等待 45 秒未检测到明确的打卡确认文字")
                 val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
                 recordClockResult(confirmed = false, detail = msg)
                 goHomeAndReset()
             }
         }
-        handler.postDelayed(timeoutRunnable!!, 15000)
+        handler.postDelayed(timeoutRunnable!!, Constants.TIMEOUT_ACCESSIBILITY_SCAN)
     }
 
     /**
@@ -138,7 +138,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
                 val msg = "极速打卡成功！检测到: $matchedText"
                 recordClockResult(confirmed = true, detail = msg)
-                timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消 15 秒超时检测
+                timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消超时检测
                 goHomeAndReset()
                 return
             }

@@ -22,4 +22,9 @@ object Constants {
 
     // ===== Notification Channel IDs =====
     const val CHANNEL_ID_WAKE = "autoclock_channel"
+
+    // ===== 生命与超时配置 (ms) =====
+    const val TIMEOUT_ACCESSIBILITY_SCAN = 45000L      // 无障碍扫描最长等待时间 (45s)
+    const val TIMEOUT_WAKE_ACTIVITY_FALLBACK = 55000L  // WakeActivity 兜底销毁超时 (55s)
+    const val WAKELOCK_ACQUIRE_DURATION = 60000L       // WakeLock 绝对持锁时长 (60s)
 }

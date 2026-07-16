@@ -68,7 +68,7 @@ class WakeActivity : Activity() {
             PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "autoDO::WakeActivityLock"
         )
-        wakeLock?.acquire(30 * 1000L)
+        wakeLock?.acquire(Constants.WAKELOCK_ACQUIRE_DURATION)
 
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         Log.d("WakeActivity", "链式动作: $chainAction")
@@ -102,11 +102,11 @@ class WakeActivity : Activity() {
                     return@postDelayed
                 }
 
-                // 延迟释放 WakeLock 和关闭 Activity（兜底超时放宽到 20 秒）
+                // 延迟释放 WakeLock 和关闭 Activity（兜底超时放宽到 55 秒，配合无障碍的 45 秒超时）
                 mainHandler.postDelayed({
-                    Log.w("WakeActivity", "等待打卡广播超时 (20s)，触发兜底释放")
+                    Log.w("WakeActivity", "等待打卡广播超时 (${Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK/1000}s)，触发兜底释放")
                     releaseLocksAndFinish()
-                }, 20000)
+                }, Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK)
             } else {
                 releaseLocksAndFinish()
             }
@@ -193,9 +193,9 @@ class WakeActivity : Activity() {
             }
 
             mainHandler.postDelayed({
-                Log.w("WakeActivity", "等待打卡广播超时 (20s)，触发兜底释放")
+                Log.w("WakeActivity", "等待打卡广播超时 (${Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK/1000}s)，触发兜底释放")
                 releaseLocksAndFinish()
-            }, 20000)
+            }, Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK)
         } else {
             releaseLocksAndFinish()
         }
