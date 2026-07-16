@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.text.Html
 import android.text.Spanned
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
 import android.app.TimePickerDialog
 import java.util.Locale
