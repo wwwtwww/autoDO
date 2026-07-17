@@ -38,6 +38,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private var lastScanAt = 0L
     private val MAX_RETRY = (Constants.TIMEOUT_ACCESSIBILITY_SCAN / MIN_SCAN_INTERVAL_MS).toInt()
     private var timeoutRunnable: Runnable? = null
+    private var homeRunnable: Runnable? = null
     private val logLock = Any()
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -74,6 +75,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
         currentClockType = clockType
         Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式，类型: $currentClockType）===")
         timeoutRunnable?.let { handler.removeCallbacks(it) }
+        homeRunnable?.let { handler.removeCallbacks(it) }
         retryCount = 0
         lastScanAt = 0L
         currentState = ClockState.WAIT_CONFIRM
@@ -195,7 +197,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private fun goHomeAndReset() {
         currentState = ClockState.DONE
         retryCount = 0
-        handler.postDelayed({
+        homeRunnable = Runnable {
             try {
                 val homePerformed = performGlobalAction(GLOBAL_ACTION_HOME)
                 if (!homePerformed) {
@@ -214,6 +216,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
                 currentState = ClockState.IDLE
                 lastScanAt = 0L
+                homeRunnable = null
                 Log.d(TAG, "流程结束，状态已重置")
                 
                 // 通知 WakeActivity 释放 WakeLock
@@ -221,7 +224,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
                     setPackage(packageName)
                 })
             }
-        }, 3000)
+        }
+        handler.postDelayed(homeRunnable!!, 3000)
     }
 
     /**
