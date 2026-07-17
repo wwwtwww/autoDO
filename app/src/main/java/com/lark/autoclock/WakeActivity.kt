@@ -173,6 +173,12 @@ class WakeActivity : Activity() {
 
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         if (chainAction == Constants.ACTION_START_CLOCK_IN) {
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            if (keyguardDismissFailed || (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure)) {
+                Log.w("WakeActivity", "onNewIntent: 仍处于安全锁屏，终止本次自动打卡")
+                releaseLocksAndFinish()
+                return
+            }
             val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
             val service = AutoClockAccessibilityService.instance
             if (service != null) {
