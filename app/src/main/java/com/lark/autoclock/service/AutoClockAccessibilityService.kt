@@ -82,7 +82,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
         timeoutRunnable = Runnable {
             if (currentState == ClockState.WAIT_CONFIRM) {
-                Log.w(TAG, "等待 45 秒未检测到明确的打卡确认文字")
+                Log.w(TAG, "等待 ${Constants.TIMEOUT_ACCESSIBILITY_SCAN / 1000} 秒未检测到明确的打卡确认文字")
                 val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
                 recordClockResult(confirmed = false, detail = msg)
                 goHomeAndReset()
