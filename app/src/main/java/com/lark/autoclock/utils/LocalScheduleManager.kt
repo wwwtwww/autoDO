@@ -22,16 +22,23 @@ object LocalScheduleManager {
      * 判断今天是否需要打卡（基于本地基础周期 + 例外日期配置）
      */
     fun getTodayWorkdayStatus(context: Context): WorkdayStatus {
-        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return getWorkdayStatusForCalendar(context, Calendar.getInstance())
+    }
+
+    /**
+     * 判断指定 Calendar 日期是否需要打卡（基于本地基础周期 + 例外日期配置）
+     */
+    fun getWorkdayStatusForCalendar(context: Context, calendar: Calendar): WorkdayStatus {
+        val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         // 1. 检查是否在例外列表中
         val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
         try {
             val exceptionsObj = JSONObject(exceptionsStr)
-            if (exceptionsObj.has(todayStr)) {
-                val status = exceptionsObj.getString(todayStr)
-                Log.d("AutoClock", "今天 ($todayStr) 匹配到例外规则: $status")
+            if (exceptionsObj.has(dateStr)) {
+                val status = exceptionsObj.getString(dateStr)
+                Log.d("AutoClock", "日期 ($dateStr) 匹配到例外规则: $status")
                 return if (status == "WORK") WorkdayStatus.WORKDAY else WorkdayStatus.RESTDAY
             }
         } catch (e: Exception) {
@@ -39,7 +46,6 @@ object LocalScheduleManager {
         }
 
         // 2. 检查基础周期
-        val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         
         val isWorkday = when (dayOfWeek) {
@@ -63,7 +69,7 @@ object LocalScheduleManager {
             Calendar.SUNDAY -> "星期日"
             else -> "未知"
         }
-        Log.d("AutoClock", "今天 ($todayStr, $weekdayDisplay) 基础周期判定: ${if (isWorkday) "上班" else "休息"}")
+        Log.d("AutoClock", "日期 ($dateStr, $weekdayDisplay) 基础周期判定: ${if (isWorkday) "上班" else "休息"}")
         return if (isWorkday) WorkdayStatus.WORKDAY else WorkdayStatus.RESTDAY
     }
 

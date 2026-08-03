@@ -71,6 +71,9 @@ object ClockScheduler {
     /**
      * 激活每天凌晨 00:30 的日程调度器
      */
+    /**
+     * 激活每天凌晨 00:30 的日程调度器
+     */
     fun scheduleDailySetup(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, DailySetupReceiver::class.java)
@@ -97,12 +100,58 @@ object ClockScheduler {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
+            val showPendingIntent = PendingIntent.getActivity(
+                context, 0, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(calendar.timeInMillis, showPendingIntent), pendingIntent)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         } else {
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         }
-        Log.d("AutoClock", "已激活每天凌晨 00:30 的日程调度器")
+        Log.d("AutoClock", "已通过 setAlarmClock 激活每天凌晨 00:30 的日程调度器")
+    }
+
+    /**
+     * 当今天为休息日/周末时，预先计算并下发最近未来工作日的上班打卡保底闹钟。
+     * 防止手机在周末长时间（54+小时）熄屏休眠导致系统冻结进程或错过凌晨 00:30 调度。
+     */
+    fun scheduleNextWorkdayClockInInAdvance(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        val (mStartHour, mStartMin, mEndHour, mEndMin) = try {
+            val s = (prefs.getString("morning_start", "07:30") ?: "07:30").split(":")
+            val e = (prefs.getString("morning_end", "08:20") ?: "08:20").split(":")
+            listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
+        } catch (ex: Exception) {
+            listOf(7, 30, 8, 20)
+        }
+
+        val mStartTotalMins = mStartHour * 60 + mStartMin
+        val mEndTotalMins = mEndHour * 60 + mEndMin
+        val mDiff = (mEndTotalMins - mStartTotalMins).coerceAtLeast(0)
+
+        val calendar = Calendar.getInstance()
+        // 从明天开始搜索未来最多 7 天
+        for (i in 1..7) {
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+            val status = com.lark.autoclock.utils.LocalScheduleManager.getWorkdayStatusForCalendar(context, calendar)
+            if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
+                val clockInMinuteOffset = if (mDiff > 0) Random.nextInt(0, mDiff + 1) else 0
+                val clockInCal = calendar.apply {
+                    set(Calendar.HOUR_OF_DAY, mStartHour)
+                    set(Calendar.MINUTE, mStartMin + clockInMinuteOffset)
+                    set(Calendar.SECOND, Random.nextInt(0, 60))
+                    set(Calendar.MILLISECOND, 0)
+                }
+                setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis, Constants.CLOCK_TYPE_CLOCK_IN)
+                Log.d("AutoClock", "【周末/长休防护】已预先下发最近工作日上班打卡保底闹钟: ${clockInCal.time}")
+                break
+            }
+        }
     }
 
     /**
@@ -202,16 +251,25 @@ object ClockScheduler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
                 Log.e("AutoClock", "未获得精确闹钟权限，无法设置定时任务！")
-                // 这里可以通过广播或其他方式通知 UI，但由于是在后台/接收器中调用，仅做 log
                 return
             }
         }
 
-        // 申请并使用允许在 Doze 模式下唤醒设备的极高精度闹钟
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        // 使用 setAlarmClock 替代 setExactAndAllowWhileIdle！
+        // setAlarmClock 属于系统级 AlarmClock 视图，具备最高级别的硬件闹钟唤醒优先级，
+        // 在 realme UI / ColorOS / MIUI 深度 Doze 休眠模式下能够强行穿透并唤醒设备。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
+            val showPendingIntent = PendingIntent.getActivity(
+                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, showPendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
         } else {
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
         }
+        Log.d("AutoClock", "已通过 setAlarmClock 成功下发高优先级闹钟: $clockType @ $timeInMillis")
     }
 }

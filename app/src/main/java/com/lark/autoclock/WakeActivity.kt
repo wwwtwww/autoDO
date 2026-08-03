@@ -12,7 +12,14 @@ import android.view.WindowManager
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
+import android.app.NotificationChannel
+import android.provider.Settings
+import androidx.core.app.NotificationCompat
 import com.lark.autoclock.service.AutoClockAccessibilityService
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -42,12 +49,10 @@ class WakeActivity : Activity() {
                     Log.d("WakeActivity", "锁屏已成功消除")
                 }
                 override fun onDismissError() {
-                    keyguardDismissFailed = true
-                    Log.e("WakeActivity", "锁屏消除失败，跳过自动打卡")
+                    Log.w("WakeActivity", "锁屏消除回调返回 error (非致命，免密/滑动锁屏将由 WindowManager Flags 自动穿透)")
                 }
                 override fun onDismissCancelled() {
-                    keyguardDismissFailed = true
-                    Log.w("WakeActivity", "锁屏消除被取消，跳过自动打卡")
+                    Log.w("WakeActivity", "锁屏消除回调被取消 (非致命，处于 ColorOS 睡眠刚唤醒状态，系统底层 Flags 将继续解锁)")
                 }
             })
         }
@@ -75,8 +80,10 @@ class WakeActivity : Activity() {
 
         mainHandler.postDelayed({
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            if (keyguardDismissFailed || (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure)) {
-                Log.w("WakeActivity", "仍处于安全锁屏或解锁失败，终止本次自动打卡")
+            // 仅当开启了有密码/图案的安全锁屏 (isKeyguardSecure == true) 且仍处于锁屏时才终止。
+            // 对于滑动解锁/免密锁屏 (isKeyguardSecure == false)，WindowManager Flags 能成功自动穿透，绝中途强行退出！
+            if (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure) {
+                Log.w("WakeActivity", "检测到处于安全密码锁屏，无密码辅助无法自动穿透，终止本次自动打卡")
                 releaseLocksAndFinish()
                 return@postDelayed
             }
@@ -84,33 +91,132 @@ class WakeActivity : Activity() {
             if (chainAction == Constants.ACTION_START_CLOCK_IN) {
                 val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
                 Log.d("WakeActivity", "正在触发飞书打卡流... 类型: $clockType")
-                val service = AutoClockAccessibilityService.instance
-                if (service != null) {
-                    service.startClockIn(clockType)
-
-                    // 注册广播监听服务结束
-                    val filter = IntentFilter(Constants.ACTION_CLOCK_FINISHED)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-                    } else {
-                        registerReceiver(finishReceiver, filter)
+                // 再次尝试请求系统解锁（针对 ColorOS / realme UI 从极深 Doze 刚亮屏后的补唤）
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && keyguardManager.isKeyguardLocked) {
+                    try {
+                        keyguardManager.requestDismissKeyguard(this, null)
+                    } catch (e: Exception) {
+                        Log.w("WakeActivity", "二次 requestDismissKeyguard 异常: ${e.message}")
                     }
-                    isReceiverRegistered = true
-                } else {
-                    Log.e("WakeActivity", "无障碍服务未连接（可能未在系统设置中开启），打卡流程无法执行")
-                    releaseLocksAndFinish()
-                    return@postDelayed
                 }
-
-                // 延迟释放 WakeLock 和关闭 Activity（兜底超时放宽到 55 秒，配合无障碍的 45 秒超时）
-                mainHandler.postDelayed({
-                    Log.w("WakeActivity", "等待打卡广播超时 (${Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK/1000}s)，触发兜底释放")
-                    releaseLocksAndFinish()
-                }, Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK)
+                // 兜底超时从首次调用开始计时，不受重试影响
+                scheduleFallbackTimeout()
+                tryStartClockInWithRetry(clockType)
             } else {
                 releaseLocksAndFinish()
             }
         }, 2000) // 给系统足够时间完成亮屏和解锁动画
+    }
+
+    /**
+     * 带重试的打卡启动：当无障碍 instance 为 null 时，每 3 秒重试一次，最多 3 次。
+     * 覆盖系统异步重绑无障碍服务的场景。全部重试失败后记录日志并释放资源。
+     */
+    private fun tryStartClockInWithRetry(clockType: String, attempt: Int = 0) {
+        val service = AutoClockAccessibilityService.instance
+        if (service != null) {
+            service.startClockIn(clockType)
+            registerFinishReceiverIfNeeded()
+        } else if (attempt < Constants.ACCESSIBILITY_RETRY_COUNT) {
+            Log.w("WakeActivity", "无障碍服务未连接，第 ${attempt + 1}/${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试...")
+            mainHandler.postDelayed({
+                tryStartClockInWithRetry(clockType, attempt + 1)
+            }, Constants.ACCESSIBILITY_RETRY_INTERVAL_MS)
+        } else {
+            Log.e("WakeActivity", "无障碍服务经过 ${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试仍未连接，打卡失败")
+            recordAccessibilityFailure(clockType)
+            sendAccessibilityAlertNotification(clockType)
+            releaseLocksAndFinish()
+        }
+    }
+
+    /**
+     * 注册打卡完成广播监听器（如未注册）
+     */
+    private fun registerFinishReceiverIfNeeded() {
+        if (!isReceiverRegistered) {
+            val filter = IntentFilter(Constants.ACTION_CLOCK_FINISHED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(finishReceiver, filter)
+            }
+            isReceiverRegistered = true
+        }
+    }
+
+    /**
+     * 调度兜底超时释放
+     */
+    private fun scheduleFallbackTimeout() {
+        mainHandler.postDelayed({
+            Log.w("WakeActivity", "等待打卡广播超时 (${Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK/1000}s)，触发兜底释放")
+            releaseLocksAndFinish()
+        }, Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK)
+    }
+
+    /**
+     * 将无障碍断连导致的打卡失败写入 clock_log.txt，与正常打卡日志格式一致
+     */
+    private fun recordAccessibilityFailure(clockType: String) {
+        val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - 无障碍服务未连接，打卡未执行\n"
+        Thread {
+            try {
+                val logFile = File(filesDir, "clock_log.txt")
+                logFile.appendText(logLine)
+
+                // 限制文件行数，保留最近 200 行防止无限膨胀
+                val lines = logFile.readLines()
+                if (lines.size > 250) {
+                    logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
+                }
+            } catch (e: Exception) {
+                Log.e("WakeActivity", "写入失败日志异常: ${e.message}")
+            }
+        }.start()
+    }
+
+    /**
+     * 发送高优先级告警通知，提醒用户无障碍服务已断连导致打卡失败
+     */
+    private fun sendAccessibilityAlertNotification(clockType: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // 在 Android 8.0 及以上版本创建渠道（幂等操作）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val alertChannel = NotificationChannel(
+                Constants.CHANNEL_ID_ALERT,
+                "无障碍断连告警",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "无障碍服务被系统断连时的高优先级告警"
+            }
+            notificationManager.createNotificationChannel(alertChannel)
+        }
+
+        val alertIntent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        } else {
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this, 0, alertIntent, pendingFlags
+        )
+
+        val alertNotification = NotificationCompat.Builder(this, Constants.CHANNEL_ID_ALERT)
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle("autoDO 自动打卡失败")
+            .setContentText("[$clockType] 无障碍服务未连接，请重新开启无障碍")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ERROR)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(Constants.ALERT_NOTIFICATION_ID, alertNotification)
+        Log.d("WakeActivity", "已发送打卡失败无障碍断连告警通知")
     }
 
     private fun releaseLocksAndFinish() {
@@ -174,34 +280,14 @@ class WakeActivity : Activity() {
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         if (chainAction == Constants.ACTION_START_CLOCK_IN) {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            if (keyguardDismissFailed || (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure)) {
-                Log.w("WakeActivity", "onNewIntent: 仍处于安全锁屏，终止本次自动打卡")
+            if (keyguardManager.isKeyguardLocked && keyguardManager.isKeyguardSecure) {
+                Log.w("WakeActivity", "onNewIntent: 仍处于安全密码锁屏，终止本次自动打卡")
                 releaseLocksAndFinish()
                 return
             }
             val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
-            val service = AutoClockAccessibilityService.instance
-            if (service != null) {
-                service.startClockIn(clockType)
-                if (!isReceiverRegistered) {
-                    val filter = IntentFilter(Constants.ACTION_CLOCK_FINISHED)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        registerReceiver(finishReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-                    } else {
-                        registerReceiver(finishReceiver, filter)
-                    }
-                    isReceiverRegistered = true
-                }
-            } else {
-                Log.e("WakeActivity", "无障碍服务未连接（可能未在系统设置中开启），打卡流程无法执行")
-                releaseLocksAndFinish()
-                return
-            }
-
-            mainHandler.postDelayed({
-                Log.w("WakeActivity", "等待打卡广播超时 (${Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK/1000}s)，触发兜底释放")
-                releaseLocksAndFinish()
-            }, Constants.TIMEOUT_WAKE_ACTIVITY_FALLBACK)
+            scheduleFallbackTimeout()
+            tryStartClockInWithRetry(clockType)
         } else {
             releaseLocksAndFinish()
         }

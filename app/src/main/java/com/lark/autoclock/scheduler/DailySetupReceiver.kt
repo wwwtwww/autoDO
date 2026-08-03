@@ -35,7 +35,8 @@ class DailySetupReceiver : BroadcastReceiver() {
                         ClockScheduler.scheduleTodayClockActions(context)
                     }
                     LocalScheduleManager.WorkdayStatus.RESTDAY -> {
-                        Log.d("AutoClock", "判定今天是休息日/节假日，跳过今天的打卡！")
+                        Log.d("AutoClock", "判定今天是休息日/节假日，跳过今天的打卡！预先下发最近未来工作日的打卡保底闹钟...")
+                        ClockScheduler.scheduleNextWorkdayClockInInAdvance(context)
                     }
                     else -> {
                         Log.w("AutoClock", "状态未知 (UNKNOWN)，安全降级为工作日，下发打卡闹钟以防漏打！")

@@ -113,6 +113,7 @@ sequenceDiagram
 * **完全本地运行 (100% Offline)**：App 没有任何网络通信需求，包括不需要联网查询 API。用户的个人数据、飞书打卡记录均完全留在手机本地，不存在任何泄漏风险，彻底规避了网络嗅探或拦截问题。
 * **免除 Root**：App 完全基于公开的无障碍 API 构建，不需要手机获取 Root 权限，避免触发飞书针对越狱/Root 设备的风控机制。
 
-### 5.3 兼容性
-* 适配 Android 8.0 至 Android 13 版本的原生系统及主流国产定制 ROM（MIUI/ColorOS/OriginOS/HarmonyOS 2.0+）。
+### 5.3 兼容性与基准实测机型
+* **基准测试/运行机型**：**realme 大师探索版 (realme GT Master Exploration Edition, realme UI / ColorOS)**。
+* 适配 Android 8.0 至 Android 14 版本的原生系统及主流国产定制 ROM（MIUI/ColorOS/OriginOS/HarmonyOS 2.0+）。
 * 对不同屏幕分辨率的手机，依靠 Layout Node 节点信息定位（而非死板的物理坐标），保证良好的分辨率兼容性。

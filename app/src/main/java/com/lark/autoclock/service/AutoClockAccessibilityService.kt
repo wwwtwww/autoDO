@@ -133,8 +133,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
             // 收集当前界面所有文字（用于后续多重判定）
             val allText = collectAllText(rootNode)
 
-            val matchedText = findFirstSuccessNodeText(rootNode)
-            val confirmed = ClockSuccessMatcher.isConfirmedClockSuccessText(allText)
+            val matchedText = findFirstSuccessNodeText(rootNode, currentClockType)
+            val confirmed = ClockSuccessMatcher.isConfirmedClockSuccessText(allText, currentClockType)
             if (matchedText != null && confirmed) {
                 Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
                 val msg = "极速打卡成功！检测到: $matchedText"
@@ -145,19 +145,24 @@ class AutoClockAccessibilityService : AccessibilityService() {
             }
 
             if (matchedText != null) {
-                Log.d(TAG, "检测到打卡关键词但缺少考勤上下文，跳过确认: '$matchedText'")
+                Log.d(TAG, "检测到打卡关键词但由于缺少考勤上下文或发生上下班串号，跳过确认: '$matchedText'")
             }
         } finally {
             rootNode.recycle()
         }
     }
 
-    private fun findFirstSuccessNodeText(rootNode: AccessibilityNodeInfo): String? {
+    private fun findFirstSuccessNodeText(rootNode: AccessibilityNodeInfo, expectedClockType: String): String? {
         for (keyword in ClockSuccessMatcher.successKeywords) {
             val nodes = rootNode.findAccessibilityNodeInfosByText(keyword)
             try {
-                val matchedText = nodes.firstOrNull()?.text?.toString() ?: keyword
-                if (nodes.isNotEmpty()) return matchedText
+                for (node in nodes) {
+                    val matchedText = node.text?.toString() ?: continue
+                    // 防串号：如果文本里明确有反向的班次，说明是历史缓存
+                    if (expectedClockType == Constants.CLOCK_TYPE_CLOCK_IN && matchedText.contains("下班")) continue
+                    if (expectedClockType == Constants.CLOCK_TYPE_CLOCK_OUT && matchedText.contains("上班")) continue
+                    return matchedText
+                }
             } finally {
                 nodes.forEach { it.recycle() }
             }
@@ -253,6 +258,12 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 }
             }
         }
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        instance = null
+        Log.w(TAG, "无障碍服务已被系统解绑，instance 已置空")
+        return super.onUnbind(intent)
     }
 
     override fun onInterrupt() {}

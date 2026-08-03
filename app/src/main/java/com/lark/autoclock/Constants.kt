@@ -27,4 +27,11 @@ object Constants {
     const val TIMEOUT_ACCESSIBILITY_SCAN = 45000L      // 无障碍扫描最长等待时间 (45s)
     const val TIMEOUT_WAKE_ACTIVITY_FALLBACK = 55000L  // WakeActivity 兜底销毁超时 (55s)
     const val WAKELOCK_ACQUIRE_DURATION = 60000L       // WakeLock 绝对持锁时长 (60s)
+
+    // ===== 无障碍断连恢复配置 =====
+    const val ACCESSIBILITY_RETRY_COUNT = 3              // instance 为 null 时的重试次数
+    const val ACCESSIBILITY_RETRY_INTERVAL_MS = 3000L   // 每次重试间隔 (3s)
+    const val HEALTH_CHECK_INTERVAL_MS = 900000L         // 健康检测周期 (15分钟)
+    const val CHANNEL_ID_ALERT = "autoclock_alert_channel" // 告警通知通道ID
+    const val ALERT_NOTIFICATION_ID = 10003             // 告警通知ID
 }
