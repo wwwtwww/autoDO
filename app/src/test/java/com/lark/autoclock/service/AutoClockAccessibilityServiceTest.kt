@@ -74,4 +74,44 @@ class AutoClockAccessibilityServiceTest {
 
         assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_IN))
     }
+
+    // ========================================================================================
+    // 防串号校验测试：确保不会被飞书的历史缓存界面欺骗
+    // ========================================================================================
+
+    @Test
+    fun `clock-in rejects screen showing clock-out success cache`() {
+        val text = "考勤 下班极速打卡成功 打卡范围内"
+        assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_IN))
+    }
+
+    @Test
+    fun `clock-out rejects screen showing clock-in success cache`() {
+        val text = "考勤 上班·已打卡 打卡时间 08:30"
+        assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_OUT))
+    }
+
+    @Test
+    fun `clock-in accepts matching direction success`() {
+        val text = "考勤 上班极速打卡成功 打卡范围内"
+        assertTrue(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_IN))
+    }
+
+    @Test
+    fun `clock-out accepts matching direction success`() {
+        val text = "考勤 下班极速打卡成功 打卡地点"
+        assertTrue(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_OUT))
+    }
+
+    @Test
+    fun `clock-in rejects when screen has clock-out dot separator pattern`() {
+        val text = "考勤 下班·已打卡 打卡地点 打卡时间 17:05"
+        assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_IN))
+    }
+
+    @Test
+    fun `clock-out rejects when screen has clock-in no-dot pattern`() {
+        val text = "考勤 上班已打卡 打卡范围内 打卡时间 08:15"
+        assertFalse(ClockSuccessMatcher.isConfirmedClockSuccessText(text, com.lark.autoclock.Constants.CLOCK_TYPE_CLOCK_OUT))
+    }
 }

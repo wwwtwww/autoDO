@@ -85,8 +85,16 @@ class KeepAliveService : Service() {
         val enabledInSettings = isAccessibilityEnabledInSettings()
         val instanceAlive = AutoClockAccessibilityService.instance != null
         if (enabledInSettings && !instanceAlive) {
-            Log.w(TAG, "健康检测：无障碍在系统设置中已启用但 instance 为 null，服务可能已被系统断连")
-            sendAccessibilityAlertNotification()
+            Log.w(TAG, "健康检测：无障碍在系统设置中已启用但 instance 为 null，尝试自动修复...")
+            
+            val autoHealed = com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)
+            
+            if (autoHealed) {
+                Log.i(TAG, "健康检测：已通过 ADB 权限成功拉起无障碍服务")
+            } else {
+                Log.w(TAG, "健康检测：无障碍自动拉起失败或未授权，发送断连告警通知")
+                sendAccessibilityAlertNotification()
+            }
         }
     }
 
@@ -99,7 +107,7 @@ class KeepAliveService : Service() {
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         )
         val serviceName = packageName + "/" + AutoClockAccessibilityService::class.java.name
-        return enabledServices?.contains(serviceName) == true
+        return enabledServices?.split(":")?.any { it.trim() == serviceName } == true
     }
 
     /**

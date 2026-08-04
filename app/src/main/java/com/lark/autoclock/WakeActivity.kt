@@ -24,7 +24,6 @@ import java.util.Locale
 class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var keyguardDismissFailed = false
     private var isReceiverRegistered = false
 
     private val finishReceiver = object : BroadcastReceiver() {

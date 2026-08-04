@@ -22,7 +22,7 @@ class DailySetupReceiver : BroadcastReceiver() {
             try {
                 // 本块中所有操作均为同步调用（SharedPreferences 读取 + AlarmManager 注册），
                 // 不使用 withTimeout 以防协程被中途取消导致闹钟注册不完整。
-                // goAsync() 自身有系统级超时保护（约 10 秒），足够覆盖这些轻量操作。
+                // goAsync() 自身有系统级超时保护（约 30 秒），足够覆盖这些轻量操作。
 
                 // 递归注册明天的凌晨任务，实现连续的精确轮巡
                 ClockScheduler.scheduleDailySetup(context)

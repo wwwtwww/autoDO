@@ -57,15 +57,6 @@ class AutoClockAccessibilityService : AccessibilityService() {
         Log.d(TAG, "无障碍服务已连接，单例引用已设置")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            Constants.ACTION_START_CLOCK_IN -> {
-                startClockIn(intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN)
-            }
-        }
-        return super.onStartCommand(intent, flags, startId)
-    }
-
     /**
      * 供外部组件（WakeActivity / MainActivity）直接调用的打卡入口。
      * 通过伴生对象单例引用调用，绕过 startService() 的 BIND_ACCESSIBILITY_SERVICE 权限限制。

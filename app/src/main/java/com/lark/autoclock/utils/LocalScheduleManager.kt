@@ -2,7 +2,6 @@ package com.lark.autoclock.utils
 
 import android.content.Context
 import android.util.Log
-import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar

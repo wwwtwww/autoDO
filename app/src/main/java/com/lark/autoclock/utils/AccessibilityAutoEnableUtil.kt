@@ -26,33 +26,39 @@ object AccessibilityAutoEnableUtil {
         try {
             val serviceName = context.packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
             
-            // 获取当前已开启的服务列表
-            var enabledServices = Settings.Secure.getString(
+            // 获取当前已开启的服务列表，使用 Set 进行精确匹配防止子串误判
+            val enabledServices = Settings.Secure.getString(
                 context.contentResolver, 
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: ""
 
-            if (!enabledServices.contains(serviceName)) {
-                // 如果没有开启，则追加到列表中
-                if (enabledServices.isNotEmpty() && !enabledServices.endsWith(":")) {
-                    enabledServices += ":"
-                }
-                enabledServices += serviceName
+            val serviceSet = enabledServices.split(":").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+            
+            if (serviceName !in serviceSet) {
+                // 如果没有开启，则追加到集合中
+                serviceSet.add(serviceName)
                 
                 // 写入新的服务列表
                 Settings.Secure.putString(
                     context.contentResolver,
                     Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                    enabledServices
+                    serviceSet.joinToString(":")
                 )
             }
 
-            // 确保无障碍功能总开关是打开的
-            Settings.Secure.putInt(
+            // 确保无障碍功能总开关是打开的（先读后写，避免不必要的系统写操作）
+            val currentEnabled = Settings.Secure.getInt(
                 context.contentResolver,
                 Settings.Secure.ACCESSIBILITY_ENABLED,
-                1
+                0
             )
+            if (currentEnabled != 1) {
+                Settings.Secure.putInt(
+                    context.contentResolver,
+                    Settings.Secure.ACCESSIBILITY_ENABLED,
+                    1
+                )
+            }
             
             Log.i(TAG, "成功通过 WRITE_SECURE_SETTINGS 自动开启了无障碍服务")
             return true
