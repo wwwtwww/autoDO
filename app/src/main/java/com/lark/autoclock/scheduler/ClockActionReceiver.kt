@@ -1,6 +1,5 @@
 package com.lark.autoclock.scheduler
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -11,7 +10,9 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lark.autoclock.Constants
+import com.lark.autoclock.R
 import com.lark.autoclock.WakeActivity
+import com.lark.autoclock.utils.NotificationUtil
 
 class ClockActionReceiver : BroadcastReceiver() {
     companion object {
@@ -61,12 +62,7 @@ class ClockActionReceiver : BroadcastReceiver() {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = Constants.CHANNEL_ID_WAKE
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "打卡唤醒通知", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "用于在后台点亮屏幕并触发打卡"
-            }
-            notificationManager.createNotificationChannel(channel)
-        }
+        NotificationUtil.createAllChannels(context)
 
         val wakeIntent = Intent(context, WakeActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -83,8 +79,8 @@ class ClockActionReceiver : BroadcastReceiver() {
 
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("autoDO 打卡触发")
-            .setContentText("正在强制唤醒屏幕并执行打卡...")
+            .setContentTitle(context.getString(R.string.notif_wake_title))
+            .setContentText(context.getString(R.string.notif_wake_text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)

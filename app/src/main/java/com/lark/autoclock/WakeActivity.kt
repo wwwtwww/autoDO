@@ -12,10 +12,16 @@ import android.view.WindowManager
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
-import android.app.NotificationChannel
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import com.lark.autoclock.R
 import com.lark.autoclock.service.AutoClockAccessibilityService
+import com.lark.autoclock.utils.NotificationUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -25,6 +31,8 @@ class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isReceiverRegistered = false
+    // 绑定 Activity 生命周期的 IO 协程作用域，用于异步化文件操作
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val finishReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -164,7 +172,8 @@ class WakeActivity : Activity() {
     private fun recordAccessibilityFailure(clockType: String) {
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - 无障碍服务未连接，打卡未执行\n"
-        Thread {
+
+        ioScope.launch {
             try {
                 val logFile = File(filesDir, "clock_log.txt")
                 logFile.appendText(logLine)
@@ -177,7 +186,7 @@ class WakeActivity : Activity() {
             } catch (e: Exception) {
                 Log.e("WakeActivity", "写入失败日志异常: ${e.message}")
             }
-        }.start()
+        }
     }
 
     /**
@@ -186,17 +195,8 @@ class WakeActivity : Activity() {
     private fun sendAccessibilityAlertNotification(clockType: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // 在 Android 8.0 及以上版本创建渠道（幂等操作）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val alertChannel = NotificationChannel(
-                Constants.CHANNEL_ID_ALERT,
-                "无障碍断连告警",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "无障碍服务被系统断连时的高优先级告警"
-            }
-            notificationManager.createNotificationChannel(alertChannel)
-        }
+        // 通过共享工具幂等创建所有通知渠道
+        NotificationUtil.createAllChannels(this)
 
         val alertIntent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -210,8 +210,8 @@ class WakeActivity : Activity() {
 
         val alertNotification = NotificationCompat.Builder(this, Constants.CHANNEL_ID_ALERT)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
-            .setContentTitle("autoDO 自动打卡失败")
-            .setContentText("[$clockType] 无障碍服务未连接，请重新开启无障碍")
+            .setContentTitle(getString(R.string.notif_alert_title))
+            .setContentText(getString(R.string.notif_alert_text, clockType))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ERROR)
             .setAutoCancel(true)
@@ -246,6 +246,7 @@ class WakeActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ioScope.cancel() // 取消所有挂起的 IO 协程，防止 Activity 销毁后写入
         if (isReceiverRegistered) {
             try {
                 unregisterReceiver(finishReceiver)
@@ -280,6 +281,16 @@ class WakeActivity : Activity() {
         Log.d("WakeActivity", "onNewIntent: 收到新 Intent，重置并重新触发打卡流程")
         mainHandler.removeCallbacksAndMessages(null)
 
+        // 反注册旧的 finishReceiver，防止上一个流程的残留广播中断新流程
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(finishReceiver)
+            } catch (e: Exception) {
+                Log.e("WakeActivity", "onNewIntent 反注册旧广播异常: ${e.message}")
+            }
+            isReceiverRegistered = false
+        }
+
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         if (chainAction == Constants.ACTION_START_CLOCK_IN) {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -288,9 +299,13 @@ class WakeActivity : Activity() {
                 releaseLocksAndFinish()
                 return
             }
-            val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
-            scheduleFallbackTimeout()
-            tryStartClockInWithRetry(clockType)
+            // 延迟 1 秒等待屏幕亮起后再启动打卡（与 onCreate 中的 2s 延迟同理）
+            mainHandler.postDelayed({
+                if (isFinishing) return@postDelayed
+                val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
+                scheduleFallbackTimeout()
+                tryStartClockInWithRetry(clockType)
+            }, 1000)
         } else {
             releaseLocksAndFinish()
         }

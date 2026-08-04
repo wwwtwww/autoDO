@@ -1,6 +1,5 @@
 package com.lark.autoclock.service
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
@@ -14,6 +13,8 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lark.autoclock.Constants
+import com.lark.autoclock.R
+import com.lark.autoclock.utils.NotificationUtil
 
 /**
  * 前台保活服务（第二层保活选项）。
@@ -46,7 +47,7 @@ class KeepAliveService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        NotificationUtil.createAllChannels(this)
         handler.postDelayed(healthCheckRunnable, Constants.HEALTH_CHECK_INTERVAL_MS)
     }
 
@@ -56,8 +57,8 @@ class KeepAliveService : Service() {
         }
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("autoDO 守护进程")
-            .setContentText("保活运行中，确保定时打卡不遗漏")
+            .setContentTitle(getString(R.string.notif_keepalive_title))
+            .setContentText(getString(R.string.notif_keepalive_text))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setSilent(true)
@@ -128,8 +129,8 @@ class KeepAliveService : Service() {
 
         val alertNotification = NotificationCompat.Builder(this, Constants.CHANNEL_ID_ALERT)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
-            .setContentTitle("无障碍服务已断连")
-            .setContentText("autoDO 无法自动打卡，点击重新开启无障碍服务")
+            .setContentTitle(getString(R.string.notif_disconnect_title))
+            .setContentText(getString(R.string.notif_disconnect_text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ERROR)
             .setAutoCancel(true)
@@ -138,32 +139,6 @@ class KeepAliveService : Service() {
 
         notificationManager.notify(Constants.ALERT_NOTIFICATION_ID, alertNotification)
         Log.d(TAG, "已发送无障碍断连告警通知")
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val keepAliveChannel = NotificationChannel(
-                CHANNEL_ID,
-                "保活通知",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "前台服务常驻通知，防止备用机深度休眠导致打卡遗漏"
-                setShowBadge(false)
-            }
-
-            val alertChannel = NotificationChannel(
-                Constants.CHANNEL_ID_ALERT,
-                "无障碍断连告警",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "无障碍服务被系统断连时的高优先级告警"
-            }
-
-            val notificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(keepAliveChannel)
-            notificationManager.createNotificationChannel(alertChannel)
-        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

@@ -115,7 +115,7 @@ object ClockScheduler {
     }
 
     /**
-     * 当今天为休息日/周末时，预先计算并下发最近未来工作日的上班打卡保底闹钟。
+     * 当今天为休息日/周末时，预先计算并下发最近未来工作日的上班+下班打卡保底闹钟。
      * 防止手机在周末长时间（54+小时）熄屏休眠导致系统冻结进程或错过凌晨 00:30 调度。
      */
     fun scheduleNextWorkdayClockInInAdvance(context: Context) {
@@ -134,14 +134,28 @@ object ClockScheduler {
         val mEndTotalMins = mEndHour * 60 + mEndMin
         val mDiff = (mEndTotalMins - mStartTotalMins).coerceAtLeast(0)
 
+        // 读取下班配置，默认 18:00 ~ 18:10
+        val (aStartHour, aStartMin, aEndHour, aEndMin) = try {
+            val s = (prefs.getString("afternoon_start", "18:00") ?: "18:00").split(":")
+            val e = (prefs.getString("afternoon_end", "18:10") ?: "18:10").split(":")
+            listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
+        } catch (ex: Exception) {
+            listOf(18, 0, 18, 10)
+        }
+
+        val aStartTotalMins = aStartHour * 60 + aStartMin
+        val aEndTotalMins = aEndHour * 60 + aEndMin
+        val aDiff = (aEndTotalMins - aStartTotalMins).coerceAtLeast(0)
+
         val calendar = Calendar.getInstance()
         // 从明天开始搜索未来最多 7 天
         for (i in 1..7) {
             calendar.add(Calendar.DAY_OF_YEAR, 1)
             val status = com.lark.autoclock.utils.LocalScheduleManager.getWorkdayStatusForCalendar(context, calendar)
             if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
+                // 上班打卡保底闹钟（使用 clone 避免修改循环中的 calendar）
                 val clockInMinuteOffset = if (mDiff > 0) Random.nextInt(0, mDiff + 1) else 0
-                val clockInCal = calendar.apply {
+                val clockInCal = (calendar.clone() as Calendar).apply {
                     set(Calendar.HOUR_OF_DAY, mStartHour)
                     set(Calendar.MINUTE, mStartMin + clockInMinuteOffset)
                     set(Calendar.SECOND, Random.nextInt(0, 60))
@@ -149,6 +163,18 @@ object ClockScheduler {
                 }
                 setExactAlarm(context, alarmManager, 1001, clockInCal.timeInMillis, Constants.CLOCK_TYPE_CLOCK_IN)
                 Log.d("AutoClock", "【周末/长休防护】已预先下发最近工作日上班打卡保底闹钟: ${clockInCal.time}")
+
+                // 下班打卡保底闹钟
+                val clockOutMinuteOffset = if (aDiff > 0) Random.nextInt(0, aDiff + 1) else 0
+                val clockOutCal = (calendar.clone() as Calendar).apply {
+                    set(Calendar.HOUR_OF_DAY, aStartHour)
+                    set(Calendar.MINUTE, aStartMin + clockOutMinuteOffset)
+                    set(Calendar.SECOND, Random.nextInt(0, 60))
+                    set(Calendar.MILLISECOND, 0)
+                }
+                setExactAlarm(context, alarmManager, 1002, clockOutCal.timeInMillis, Constants.CLOCK_TYPE_CLOCK_OUT)
+                Log.d("AutoClock", "【周末/长休防护】已预先下发最近工作日下班打卡保底闹钟: ${clockOutCal.time}")
+
                 break
             }
         }

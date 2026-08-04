@@ -129,4 +129,22 @@
     <string name="exception_type_rest_short">强制休息 (节假日)</string>
     <string name="exception_type_work">强制打卡 (调休补班)</string>
     <string name="exception_type_rest">强制休息 (法定节假日)</string>
+
+    <!-- 通知渠道名称与描述 -->
+    <string name="channel_name_alert">无障碍断连告警</string>
+    <string name="channel_desc_alert">无障碍服务被系统断连时的高优先级告警</string>
+    <string name="channel_name_wake">打卡唤醒通知</string>
+    <string name="channel_desc_wake">用于在后台点亮屏幕并触发打卡</string>
+    <string name="channel_name_keepalive">保活通知</string>
+    <string name="channel_desc_keepalive">前台服务常驻通知，防止备用机深度休眠导致打卡遗漏</string>
+
+    <!-- 通知文案 -->
+    <string name="notif_alert_title">autoDO 自动打卡失败</string>
+    <string name="notif_alert_text">[%1$s] 无障碍服务未连接，请重新开启无障碍</string>
+    <string name="notif_wake_title">autoDO 打卡触发</string>
+    <string name="notif_wake_text">正在强制唤醒屏幕并执行打卡…</string>
+    <string name="notif_keepalive_title">autoDO 守护进程</string>
+    <string name="notif_keepalive_text">保活运行中，确保定时打卡不遗漏</string>
+    <string name="notif_disconnect_title">无障碍服务已断连</string>
+    <string name="notif_disconnect_text">autoDO 无法自动打卡，点击重新开启无障碍服务</string>
 </resources>

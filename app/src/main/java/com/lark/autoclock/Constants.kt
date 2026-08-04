@@ -25,7 +25,7 @@ object Constants {
 
     // ===== 生命与超时配置 (ms) =====
     const val TIMEOUT_ACCESSIBILITY_SCAN = 45000L      // 无障碍扫描最长等待时间 (45s)
-    const val TIMEOUT_WAKE_ACTIVITY_FALLBACK = 55000L  // WakeActivity 兜底销毁超时 (55s)
+    const val TIMEOUT_WAKE_ACTIVITY_FALLBACK = 65000L  // WakeActivity 兜底销毁超时 (65s) — 覆盖最差重试路径 (2s+6s+45s+3s=56s) 加安全余量
     const val WAKELOCK_ACQUIRE_DURATION = 60000L       // WakeLock 绝对持锁时长 (60s)
 
     // ===== 无障碍断连恢复配置 =====
