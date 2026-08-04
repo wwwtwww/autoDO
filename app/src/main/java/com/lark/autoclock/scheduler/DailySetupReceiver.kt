@@ -27,6 +27,9 @@ class DailySetupReceiver : BroadcastReceiver() {
                 // 递归注册明天的凌晨任务，实现连续的精确轮巡
                 ClockScheduler.scheduleDailySetup(context)
 
+                // 自我修复无障碍服务：如果在长待机中被系统强杀，利用 WRITE_SECURE_SETTINGS 权限将其拉起
+                com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(context)
+
                 val status = LocalScheduleManager.getTodayWorkdayStatus(context)
 
                 when (status) {

@@ -54,10 +54,15 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // 1. 跳转无障碍设置
+        // 1. 跳转无障碍设置 / 自动开启
         findViewById<View>(R.id.btn_enable_accessibility).setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
+            if (com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)) {
+                Toast.makeText(this, "已通过 ADB 授权自动开启无障碍服务！", Toast.LENGTH_SHORT).show()
+                updateStatusAndPermissionsUI()
+            } else {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                startActivity(intent)
+            }
         }
 
         // 2. 测试亮屏与解锁

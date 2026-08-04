@@ -118,7 +118,11 @@ class WakeActivity : Activity() {
             service.startClockIn(clockType)
             registerFinishReceiverIfNeeded()
         } else if (attempt < Constants.ACCESSIBILITY_RETRY_COUNT) {
-            Log.w("WakeActivity", "无障碍服务未连接，第 ${attempt + 1}/${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试...")
+            Log.w("WakeActivity", "无障碍服务未连接，尝试自动修复并进行第 ${attempt + 1}/${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试...")
+            
+            // 如果无障碍未连接，且已授权了 WRITE_SECURE_SETTINGS，尝试自动把它拉起来
+            com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)
+
             mainHandler.postDelayed({
                 tryStartClockInWithRetry(clockType, attempt + 1)
             }, Constants.ACCESSIBILITY_RETRY_INTERVAL_MS)
