@@ -8,6 +8,7 @@ object Constants {
     // ===== Intent Extra Keys =====
     const val EXTRA_CLOCK_TYPE = "CLOCK_TYPE"
     const val EXTRA_CHAIN_ACTION = "CHAIN_ACTION"
+    const val EXTRA_DELAYED_RETRY_COUNT = "DELAYED_RETRY_COUNT"
 
     // ===== Chain Actions =====
     const val ACTION_START_CLOCK_IN = "ACTION_START_CLOCK_IN"
@@ -32,6 +33,8 @@ object Constants {
     const val ACCESSIBILITY_RETRY_COUNT = 3              // instance 为 null 时的重试次数
     const val ACCESSIBILITY_RETRY_INTERVAL_MS = 3000L   // 每次重试间隔 (3s)
     const val HEALTH_CHECK_INTERVAL_MS = 900000L         // 健康检测周期 (15分钟)
+    const val DELAYED_RETRY_COUNT = 2                  // 无障碍断连后的延迟全量重试次数 (每次间隔60s)
+    const val DELAYED_RETRY_INTERVAL_MS = 60000L        // 延迟重试间隔 (60s)
     const val CHANNEL_ID_ALERT = "autoclock_alert_channel" // 告警通知通道ID
     const val ALERT_NOTIFICATION_ID = 10003             // 告警通知ID
 }

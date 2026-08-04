@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import com.lark.autoclock.R
 import com.lark.autoclock.service.AutoClockAccessibilityService
 import com.lark.autoclock.utils.NotificationUtil
+import com.lark.autoclock.scheduler.ClockScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,7 @@ class WakeActivity : Activity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isReceiverRegistered = false
+    private var delayedRetryCount = 0  // 当前延迟全量重试的次数 (0 = 首次触发)
     // 绑定 Activity 生命周期的 IO 协程作用域，用于异步化文件操作
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -83,7 +85,8 @@ class WakeActivity : Activity() {
         wakeLock?.acquire(Constants.WAKELOCK_ACQUIRE_DURATION)
 
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
-        Log.d("WakeActivity", "链式动作: $chainAction")
+        delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
+        Log.d("WakeActivity", "链式动作: $chainAction, 延迟重试计数: $delayedRetryCount")
 
         mainHandler.postDelayed({
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -134,10 +137,20 @@ class WakeActivity : Activity() {
                 tryStartClockInWithRetry(clockType, attempt + 1)
             }, Constants.ACCESSIBILITY_RETRY_INTERVAL_MS)
         } else {
-            Log.e("WakeActivity", "无障碍服务经过 ${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试仍未连接，打卡失败")
-            recordAccessibilityFailure(clockType)
-            sendAccessibilityAlertNotification(clockType)
-            releaseLocksAndFinish()
+            Log.e("WakeActivity", "无障碍服务经过 ${Constants.ACCESSIBILITY_RETRY_COUNT} 次即时重试仍未连接")
+            if (delayedRetryCount < Constants.DELAYED_RETRY_COUNT) {
+                // 尚有延迟重试机会：通过 AlarmManager 在 60s 后重新触发整个打卡流程
+                Log.w("WakeActivity", "调度延迟重试 #${delayedRetryCount + 1}/${Constants.DELAYED_RETRY_COUNT}，" +
+                        "将在 ${Constants.DELAYED_RETRY_INTERVAL_MS / 1000}s 后重新触发打卡流程")
+                recordAccessibilityFailure(clockType, "延迟重试 #${delayedRetryCount + 1} 已调度")
+                ClockScheduler.scheduleDelayedClockInRetry(this, clockType, delayedRetryCount)
+                releaseLocksAndFinish()
+            } else {
+                Log.e("WakeActivity", "延迟重试已达上限 (${Constants.DELAYED_RETRY_COUNT})，打卡最终失败")
+                recordAccessibilityFailure(clockType)
+                sendAccessibilityAlertNotification(clockType)
+                releaseLocksAndFinish()
+            }
         }
     }
 
@@ -169,9 +182,9 @@ class WakeActivity : Activity() {
     /**
      * 将无障碍断连导致的打卡失败写入 clock_log.txt，与正常打卡日志格式一致
      */
-    private fun recordAccessibilityFailure(clockType: String) {
+    private fun recordAccessibilityFailure(clockType: String, extraNote: String = "无障碍服务未连接，打卡未执行") {
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - 无障碍服务未连接，打卡未执行\n"
+        val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - $extraNote\n"
 
         ioScope.launch {
             try {
@@ -279,6 +292,8 @@ class WakeActivity : Activity() {
         if (isFinishing) return
 
         Log.d("WakeActivity", "onNewIntent: 收到新 Intent，重置并重新触发打卡流程")
+        delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
+        Log.d("WakeActivity", "onNewIntent: 延迟重试计数: $delayedRetryCount")
         mainHandler.removeCallbacksAndMessages(null)
 
         // 反注册旧的 finishReceiver，防止上一个流程的残留广播中断新流程

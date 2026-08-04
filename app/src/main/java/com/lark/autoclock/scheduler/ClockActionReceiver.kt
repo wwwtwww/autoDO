@@ -40,7 +40,8 @@ class ClockActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
-        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！类型: $clockType ===")
+        val delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
+        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！类型: $clockType, 延迟重试计数: $delayedRetryCount ===")
 
         // ======== 第 1 层：最底层的 CPU + 屏幕 WakeLock（确保 CPU 不会在中途睡回去）========
         // FULL_WAKE_LOCK 已废弃，但 BroadcastReceiver 无 Window，无法使用 WindowManager Flags。
@@ -68,6 +69,7 @@ class ClockActionReceiver : BroadcastReceiver() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             putExtra(Constants.EXTRA_CHAIN_ACTION, Constants.ACTION_START_CLOCK_IN)
             putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
+            putExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, delayedRetryCount)
         }
 
         val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -95,6 +97,7 @@ class ClockActionReceiver : BroadcastReceiver() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(Constants.EXTRA_CHAIN_ACTION, Constants.ACTION_START_CLOCK_IN)
                 putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
+                putExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, delayedRetryCount)
             }
             context.startActivity(directIntent)
             Log.d("AutoClock", "已尝试直接启动 WakeActivity（best-effort，实际可能被系统拦截）")
