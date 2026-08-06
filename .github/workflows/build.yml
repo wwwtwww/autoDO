@@ -36,7 +36,7 @@ jobs:
             echo "✅ 已从 Secret 解码 debug.keystore"
             echo "need_upload=false" >> $GITHUB_OUTPUT
           else
-            echo "⚠️ 警告: 未设置 DEBUG_KEYSTORE_BASE64 Secret"
+            echo "::error::未设置 DEBUG_KEYSTORE_BASE64 Secret，拒绝使用临时签名（会导致每次构建签名不一致）"
             echo "⚠️ 将生成新的 debug.keystore 并上传为 artifact，请下载后 base64 编码并配置为 GitHub Secret"
             keytool -genkeypair -v \
               -keystore ~/.android/debug.keystore \
@@ -47,6 +47,7 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
             echo "✅ 已生成新的 debug.keystore"
             echo "need_upload=true" >> $GITHUB_OUTPUT
+            exit 1
           fi
 
       - name: 运行单元测试
@@ -71,10 +72,11 @@ jobs:
 
       - name: 上传 Debug 签名文件（首次配置 Secret 时需要）
         uses: actions/upload-artifact@v4
-        if: success() && steps.keystore.outputs.need_upload == 'true'
+        if: always() && steps.keystore.outputs.need_upload == 'true'
         with:
           name: Debug-Keystore
           path: ~/.android/debug.keystore
+          retention-days: 3
 
       - name: 上传错误日志 (供排查)
         uses: actions/upload-artifact@v4
