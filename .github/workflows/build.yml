@@ -25,28 +25,14 @@ jobs:
           gradle-version: '8.4'
           cache-disabled: true
 
-      - name: 注入 Debug 签名文件（保证可覆盖安装）
-        id: keystore
-        env:
-          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+      - name: 注入 Debug 签名文件（从仓库读取，保证可覆盖安装）
         run: |
           mkdir -p ~/.android
-          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
-            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
-            echo "✅ 已从 Secret 解码 debug.keystore"
-            echo "need_upload=false" >> $GITHUB_OUTPUT
+          if [ -f debug.keystore ]; then
+            cp debug.keystore ~/.android/debug.keystore
+            echo "✅ 已从仓库复制 debug.keystore 到 ~/.android/"
           else
-            echo "::error::未设置 DEBUG_KEYSTORE_BASE64 Secret，拒绝使用临时签名（会导致每次构建签名不一致）"
-            echo "⚠️ 将生成新的 debug.keystore 并上传为 artifact，请下载后 base64 编码并配置为 GitHub Secret"
-            keytool -genkeypair -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-            echo "✅ 已生成新的 debug.keystore"
-            echo "need_upload=true" >> $GITHUB_OUTPUT
+            echo "::error::仓库中未找到 debug.keystore 文件！"
             exit 1
           fi
 
@@ -69,14 +55,6 @@ jobs:
         with:
           name: autoDO-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
-
-      - name: 上传 Debug 签名文件（首次配置 Secret 时需要）
-        uses: actions/upload-artifact@v4
-        if: always() && steps.keystore.outputs.need_upload == 'true'
-        with:
-          name: Debug-Keystore
-          path: ~/.android/debug.keystore
-          retention-days: 3
 
       - name: 上传错误日志 (供排查)
         uses: actions/upload-artifact@v4
