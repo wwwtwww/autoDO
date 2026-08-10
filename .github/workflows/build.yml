@@ -25,12 +25,20 @@ jobs:
           gradle-version: '8.4'
           cache-disabled: true
 
+      # debug.keystore 为 debug 签名密钥（密码 android，公开已知），非安全敏感文件。
+      # 提交到仓库可确保 CI 每次构建签名 100% 一致，支持覆盖安装保留 WRITE_SECURE_SETTINGS 权限。
+      # 安全权衡：仓库若为 public，任何人可用此密钥签出同签名 APK 覆盖安装。对专用打卡机风险可接受。
       - name: 注入 Debug 签名文件（从仓库读取，保证可覆盖安装）
         run: |
           mkdir -p ~/.android
           if [ -f debug.keystore ]; then
             cp debug.keystore ~/.android/debug.keystore
-            echo "✅ 已从仓库复制 debug.keystore 到 ~/.android/"
+            # 校验 keystore 完整性，损坏时尽早 fail-fast 而非等到签名阶段
+            keytool -list -keystore ~/.android/debug.keystore -storepass android >/dev/null 2>&1 || {
+              echo "::error::debug.keystore 无法读取或密码错误，文件可能已损坏"
+              exit 1
+            }
+            echo "✅ 已从仓库复制 debug.keystore 到 ~/.android/ 并通过完整性校验"
           else
             echo "::error::仓库中未找到 debug.keystore 文件！"
             exit 1
