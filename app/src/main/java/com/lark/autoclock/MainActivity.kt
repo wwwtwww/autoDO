@@ -452,6 +452,7 @@ class MainActivity : AppCompatActivity() {
                     typeface = android.graphics.Typeface.MONOSPACE
                     setLineSpacing(10f, 1.2f)
                     setTextColor(getColor(R.color.log_text_gray))
+                    setTextIsSelectable(true)  // 允许用户长按选择并复制日志文字
                 }
                 scrollView.addView(textView)
 
