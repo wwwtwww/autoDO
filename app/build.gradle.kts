@@ -7,6 +7,17 @@ android {
     namespace = "com.lark.autoclock"
     compileSdk = 34
 
+    // 显式指定 debug 签名配置，使用仓库根目录的 debug.keystore
+    // 确保本地和 CI 构建签名 100% 一致，支持覆盖安装保留系统权限
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.lark.autoclock"
         minSdk = 26
@@ -19,6 +30,7 @@ android {
 
     buildTypes {
         getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
             // 注意：BuildType 中无法直接设置 versionCode/versionName。
             // Android Studio 会默认使用 `adb install -r`，只要签名相同，即便 versionCode 没变也能直接覆盖安装。
         }
