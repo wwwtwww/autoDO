@@ -32,11 +32,12 @@ jobs:
       - name: 校验 Debug 签名文件完整性
         run: |
           if [ -f debug.keystore ]; then
-            keytool -list -keystore debug.keystore -storepass android 2>&1 | head -20
-            keytool -list -keystore debug.keystore -storepass android >/dev/null 2>&1 || {
+            output=$(keytool -list -keystore debug.keystore -storepass android 2>&1) || {
               echo "::error::debug.keystore 无法读取或密码错误，文件可能已损坏"
+              echo "$output"
               exit 1
             }
+            echo "$output" | head -20
             echo "✅ debug.keystore 完整性校验通过"
           else
             echo "::error::仓库中未找到 debug.keystore 文件！"
