@@ -115,17 +115,14 @@ object LocalScheduleManager {
     fun getAllExceptions(context: Context): Map<String, String> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val exceptionsStr = prefs.getString(KEY_EXCEPTIONS, "{}") ?: "{}"
-        val result = mutableMapOf<String, String>()
-        try {
+        return try {
             val exceptionsObj = JSONObject(exceptionsStr)
-            val keys = exceptionsObj.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                result[key] = exceptionsObj.getString(key)
-            }
+            exceptionsObj.keys().asSequence()
+                .associateWith { exceptionsObj.getString(it) }
+                .toSortedMap()
         } catch (e: Exception) {
             Log.e("AutoClock", "读取例外配置失败: ${e.message}")
+            emptyMap()
         }
-        return result.toSortedMap()
     }
 }

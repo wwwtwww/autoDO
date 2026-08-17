@@ -54,14 +54,20 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // 1. 跳转无障碍设置 / 自动开启
+        // 1. 跳转无障碍设置 / 自动开启（含 Thread.sleep 的 toggle 逻辑必须异步执行，避免主线程卡顿）
         findViewById<View>(R.id.btn_enable_accessibility).setOnClickListener {
-            if (com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)) {
-                Toast.makeText(this, "已通过 ADB 授权自动开启无障碍服务！", Toast.LENGTH_SHORT).show()
-                updateStatusAndPermissionsUI()
-            } else {
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                startActivity(intent)
+            lifecycleScope.launch(Dispatchers.IO) {
+                val ok = com.lark.autoclock.utils.AccessibilityAutoEnableUtil
+                    .autoEnableAccessibilityService(this@MainActivity)
+                withContext(Dispatchers.Main) {
+                    if (ok) {
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_adb_auto_enabled), Toast.LENGTH_SHORT).show()
+                        updateStatusAndPermissionsUI()
+                    } else {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        startActivity(intent)
+                    }
+                }
             }
         }
 
@@ -469,8 +475,11 @@ class MainActivity : AppCompatActivity() {
                     .setView(scrollView)
                     .setPositiveButton(getString(R.string.dialog_btn_close), null)
                     .setNeutralButton(getString(R.string.dialog_btn_clear_logs)) { _, _ ->
-                        if (logFile.delete()) {
-                            Toast.makeText(this@MainActivity, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
+                        lifecycleScope.launch {
+                            val deleted = com.lark.autoclock.utils.LogUtil.clearLog(this@MainActivity)
+                            if (deleted) {
+                                Toast.makeText(this@MainActivity, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                     .show()

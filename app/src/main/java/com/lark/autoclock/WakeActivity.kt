@@ -187,18 +187,7 @@ class WakeActivity : Activity() {
         val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - $extraNote\n"
 
         ioScope.launch {
-            try {
-                val logFile = File(filesDir, "clock_log.txt")
-                logFile.appendText(logLine)
-
-                // 限制文件行数，保留最近 200 行防止无限膨胀
-                val lines = logFile.readLines()
-                if (lines.size > 250) {
-                    logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
-                }
-            } catch (e: Exception) {
-                Log.e("WakeActivity", "写入失败日志异常: ${e.message}")
-            }
+            com.lark.autoclock.utils.LogUtil.appendLog(this@WakeActivity, logLine)
         }
     }
 
@@ -292,6 +281,13 @@ class WakeActivity : Activity() {
         if (isFinishing) return
 
         Log.d("WakeActivity", "onNewIntent: 收到新 Intent，重置并重新触发打卡流程")
+        // 续期自身 WakeLock：延迟重试触发时 onCreate 申请的锁（60s 超时）可能已过期，
+        // 仅依赖 WindowManager Flags 在极少数特殊 ROM 上存在息屏风险
+        try {
+            wakeLock?.acquire(Constants.WAKELOCK_ACQUIRE_DURATION)
+        } catch (e: Exception) {
+            Log.e("WakeActivity", "onNewIntent 续期 WakeLock 异常: ${e.message}")
+        }
         delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
         Log.d("WakeActivity", "onNewIntent: 延迟重试计数: $delayedRetryCount")
         mainHandler.removeCallbacksAndMessages(null)

@@ -119,6 +119,7 @@
     <string name="toast_exact_alarm_permission">请授权精确闹钟权限，否则打卡闹钟将无法准时触发！</string>
     <string name="toast_no_logs">暂无打卡记录</string>
     <string name="toast_logs_cleared">记录已清空</string>
+    <string name="toast_adb_auto_enabled">已通过 ADB 授权自动开启无障碍服务！</string>
     <string name="toast_save_failed_morning">保存失败：上午打卡结束时间必须晚于开始时间！</string>
     <string name="toast_save_failed_afternoon">保存失败：下午打卡结束时间必须晚于开始时间！</string>
     <string name="toast_read_log_failed">读取日志失败: %1$s</string>

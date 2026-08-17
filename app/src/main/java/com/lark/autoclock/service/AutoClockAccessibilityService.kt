@@ -38,8 +38,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     private var lastScanAt = 0L
     private val MAX_RETRY = (Constants.TIMEOUT_ACCESSIBILITY_SCAN / MIN_SCAN_INTERVAL_MS).toInt()
     private var timeoutRunnable: Runnable? = null
-    private val logLock = Any()
-    // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作
+    // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作（日志写入已收敛到 LogUtil 统一管理）
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentClockType = Constants.CLOCK_TYPE_UNKNOWN
 
@@ -232,22 +231,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
         Log.d(TAG, "打卡日志已生成: $logLine")
 
         ioScope.launch {
-            synchronized(logLock) {
-                try {
-                    val logFile = File(applicationContext.filesDir, "clock_log.txt")
-                    logFile.appendText(logLine)
-
-                    // 限制文件行数，保留最近 200 行防止无限膨胀（降频：超过 250 行才裁剪）
-                    val lines = logFile.readLines()
-                    if (lines.size > 250) {
-                        logFile.writeText(lines.takeLast(200).joinToString("\n") + "\n")
-                    }
-
-                    Log.d(TAG, "打卡日志已写入磁盘")
-                } catch (e: Exception) {
-                    Log.e(TAG, "写入打卡日志失败: ${e.message}")
-                }
-            }
+            com.lark.autoclock.utils.LogUtil.appendLog(applicationContext, logLine)
         }
     }
 
