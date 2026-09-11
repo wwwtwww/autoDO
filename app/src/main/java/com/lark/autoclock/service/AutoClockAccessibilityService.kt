@@ -41,6 +41,7 @@ class AutoClockAccessibilityService : AccessibilityService() {
     // 绑定 Service 生命周期的 IO 协程作用域，用于异步化文件操作（日志写入已收敛到 LogUtil 统一管理）
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentClockType = Constants.CLOCK_TYPE_UNKNOWN
+    private var unconfirmedRetryCount = 0
 
     companion object {
         const val FEISHU_PACKAGE_NAME = "com.ss.android.lark"
@@ -59,10 +60,15 @@ class AutoClockAccessibilityService : AccessibilityService() {
     /**
      * 供外部组件（WakeActivity / MainActivity）直接调用的打卡入口。
      * 通过伴生对象单例引用调用，绕过 startService() 的 BIND_ACCESSIBILITY_SERVICE 权限限制。
+     *
+     * @param clockType 打卡类型（上班 / 下班 / 测试）
+     * @param unconfirmedRetryCount 极速打卡未确认时的重试计数 (0 = 首次触发, 1 = 第一次重试)
      */
-    fun startClockIn(clockType: String) {
+    fun startClockIn(clockType: String, unconfirmedRetryCount: Int = 0) {
+        this.unconfirmedRetryCount = unconfirmedRetryCount
         currentClockType = clockType
-        Log.d(TAG, "=== 收到打卡指令，直接拉起飞书（极速打卡模式，类型: $currentClockType）===")
+        val retryPrefix = if (unconfirmedRetryCount > 0) "（重试 #${unconfirmedRetryCount}）" else ""
+        Log.d(TAG, "=== 收到打卡指令${retryPrefix}，直接拉起飞书（极速打卡模式，类型: $currentClockType）===")
         // 清除所有挂起回调，包括可能还在排队的 timeoutRunnable 以及 goHomeAndReset 的延迟 Runnable
         handler.removeCallbacksAndMessages(null)
         retryCount = 0
@@ -74,8 +80,25 @@ class AutoClockAccessibilityService : AccessibilityService() {
         timeoutRunnable = Runnable {
             if (currentState == ClockState.WAIT_CONFIRM) {
                 Log.w(TAG, "等待 ${Constants.TIMEOUT_ACCESSIBILITY_SCAN / 1000} 秒未检测到明确的打卡确认文字")
-                val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字）"
-                recordClockResult(confirmed = false, detail = msg)
+                val shouldRetry = com.lark.autoclock.scheduler.ClockScheduler.shouldScheduleUnconfirmedRetry(
+                    currentClockType,
+                    unconfirmedRetryCount
+                )
+                if (shouldRetry) {
+                    val nextRetry = unconfirmedRetryCount + 1
+                    val retryIntervalMin = Constants.UNCONFIRMED_RETRY_INTERVAL_MS / 60000L
+                    val msg = "飞书已启动但未检测到确认文字，已调度 ${retryIntervalMin} 分钟后自动重试一次 (#${nextRetry}/${Constants.MAX_UNCONFIRMED_RETRY_COUNT})"
+                    recordClockResult(confirmed = false, detail = msg)
+                    com.lark.autoclock.scheduler.ClockScheduler.scheduleUnconfirmedClockInRetry(
+                        applicationContext,
+                        currentClockType,
+                        nextRetry
+                    )
+                } else {
+                    val retryNote = if (unconfirmedRetryCount > 0) "，已完成 ${unconfirmedRetryCount} 次自动重试" else ""
+                    val msg = "飞书已启动，极速打卡应已触发（未检测到明确确认文字$retryNote）"
+                    recordClockResult(confirmed = false, detail = msg)
+                }
                 goHomeAndReset()
             }
         }
@@ -127,7 +150,8 @@ class AutoClockAccessibilityService : AccessibilityService() {
             val confirmed = ClockSuccessMatcher.isConfirmedClockSuccessText(allText, currentClockType)
             if (matchedText != null && confirmed) {
                 Log.d(TAG, "=== 检测到可信极速打卡成功标志: '$matchedText' ===")
-                val msg = "极速打卡成功！检测到: $matchedText"
+                val retryPrefix = if (unconfirmedRetryCount > 0) "（第 ${unconfirmedRetryCount} 次重试成功）" else ""
+                val msg = "${retryPrefix}极速打卡成功！检测到: $matchedText"
                 recordClockResult(confirmed = true, detail = msg)
                 timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消超时检测
                 goHomeAndReset()

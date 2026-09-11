@@ -311,6 +311,65 @@ object ClockScheduler {
                 "将在 ${Constants.DELAYED_RETRY_INTERVAL_MS / 1000}s 后触发")
     }
 
+    /**
+     * 判定是否应当进行未确认打卡自动重试：
+     * 1. 仅对正式打卡类型（上班、下班）触发自动重试，调试测试类型（如"测试"）不自动排班；
+     * 2. 当前已执行重试次数未达到上限 (MAX_UNCONFIRMED_RETRY_COUNT)。
+     */
+    fun shouldScheduleUnconfirmedRetry(
+        clockType: String,
+        currentRetryCount: Int,
+        maxRetry: Int = Constants.MAX_UNCONFIRMED_RETRY_COUNT
+    ): Boolean {
+        val isNormalClock = clockType == Constants.CLOCK_TYPE_CLOCK_IN || clockType == Constants.CLOCK_TYPE_CLOCK_OUT
+        return isNormalClock && currentRetryCount < maxRetry
+    }
+
+    /**
+     * 调度极速打卡未确认时的延迟重试：
+     * 飞书拉起后在 45s 内未检测到打卡成功确认文字时，
+     * 通过 AlarmManager 在 UNCONFIRMED_RETRY_INTERVAL_MS (3分钟) 后
+     * 重新触发整个打卡流程（ClockActionReceiver → WakeActivity → AccessibilityService）。
+     * 使用 setAlarmClock 确保 Doze 深度休眠穿透。
+     *
+     * @param nextRetryCount 下一次重试计数 (1-based)
+     */
+    fun scheduleUnconfirmedClockInRetry(context: Context, clockType: String, nextRetryCount: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val requestCode = 3000 + nextRetryCount  // 使用专属 requestCode 区间 (3001+)，避免冲突
+
+        val intent = Intent(context, ClockActionReceiver::class.java).apply {
+            putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
+            putExtra(Constants.EXTRA_UNCONFIRMED_RETRY_COUNT, nextRetryCount)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val triggerAt = System.currentTimeMillis() + Constants.UNCONFIRMED_RETRY_INTERVAL_MS
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e("AutoClock", "未获得精确闹钟权限，无法调度未确认自动重试！")
+                return
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
+            val showPendingIntent = PendingIntent.getActivity(
+                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
+        Log.d("AutoClock", "已调度未确认自动重试 #${nextRetryCount}/${Constants.MAX_UNCONFIRMED_RETRY_COUNT}: ${clockType}, " +
+                "将在 ${Constants.UNCONFIRMED_RETRY_INTERVAL_MS / 1000}s 后触发")
+    }
+
     private fun setExactAlarm(context: Context, alarmManager: AlarmManager, requestCode: Int, timeInMillis: Long, clockType: String) {
         val intent = Intent(context, ClockActionReceiver::class.java)
         intent.putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)

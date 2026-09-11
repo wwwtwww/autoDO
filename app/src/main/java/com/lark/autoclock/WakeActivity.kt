@@ -33,6 +33,7 @@ class WakeActivity : Activity() {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var isReceiverRegistered = false
     private var delayedRetryCount = 0  // 当前延迟全量重试的次数 (0 = 首次触发)
+    private var unconfirmedRetryCount = 0  // 极速打卡未确认时的重试次数 (0 = 首次触发)
     // 绑定 Activity 生命周期的 IO 协程作用域，用于异步化文件操作
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -86,7 +87,8 @@ class WakeActivity : Activity() {
 
         val chainAction = intent.getStringExtra(Constants.EXTRA_CHAIN_ACTION)
         delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
-        Log.d("WakeActivity", "链式动作: $chainAction, 延迟重试计数: $delayedRetryCount")
+        unconfirmedRetryCount = intent.getIntExtra(Constants.EXTRA_UNCONFIRMED_RETRY_COUNT, 0)
+        Log.d("WakeActivity", "链式动作: $chainAction, 延迟重试计数: $delayedRetryCount, 未确认重试计数: $unconfirmedRetryCount")
 
         mainHandler.postDelayed({
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -125,7 +127,7 @@ class WakeActivity : Activity() {
     private fun tryStartClockInWithRetry(clockType: String, attempt: Int = 0) {
         val service = AutoClockAccessibilityService.instance
         if (service != null) {
-            service.startClockIn(clockType)
+            service.startClockIn(clockType, unconfirmedRetryCount)
             registerFinishReceiverIfNeeded()
         } else if (attempt < Constants.ACCESSIBILITY_RETRY_COUNT) {
             Log.w("WakeActivity", "无障碍服务未连接，尝试自动修复并进行第 ${attempt + 1}/${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试...")
@@ -289,7 +291,8 @@ class WakeActivity : Activity() {
             Log.e("WakeActivity", "onNewIntent 续期 WakeLock 异常: ${e.message}")
         }
         delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
-        Log.d("WakeActivity", "onNewIntent: 延迟重试计数: $delayedRetryCount")
+        unconfirmedRetryCount = intent.getIntExtra(Constants.EXTRA_UNCONFIRMED_RETRY_COUNT, 0)
+        Log.d("WakeActivity", "onNewIntent: 延迟重试计数: $delayedRetryCount, 未确认重试计数: $unconfirmedRetryCount")
         mainHandler.removeCallbacksAndMessages(null)
 
         // 反注册旧的 finishReceiver，防止上一个流程的残留广播中断新流程

@@ -9,6 +9,7 @@ object Constants {
     const val EXTRA_CLOCK_TYPE = "CLOCK_TYPE"
     const val EXTRA_CHAIN_ACTION = "CHAIN_ACTION"
     const val EXTRA_DELAYED_RETRY_COUNT = "DELAYED_RETRY_COUNT"
+    const val EXTRA_UNCONFIRMED_RETRY_COUNT = "UNCONFIRMED_RETRY_COUNT"
 
     // ===== Chain Actions =====
     const val ACTION_START_CLOCK_IN = "ACTION_START_CLOCK_IN"
@@ -44,4 +45,8 @@ object Constants {
     const val DELAYED_RETRY_INTERVAL_MS = 60000L        // 延迟重试间隔 (60s)
     const val CHANNEL_ID_ALERT = "autoclock_alert_channel" // 告警通知通道ID
     const val ALERT_NOTIFICATION_ID = 10003             // 告警通知ID
+
+    // ===== 极速打卡未确认自动重试配置 =====
+    const val MAX_UNCONFIRMED_RETRY_COUNT = 1            // 极速打卡未确认时的自动重试次数 (1次)
+    const val UNCONFIRMED_RETRY_INTERVAL_MS = 180000L    // 未确认自动重试间隔 (3分钟 = 180s)
 }
