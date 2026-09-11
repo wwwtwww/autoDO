@@ -141,16 +141,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 5. 查看打卡日志
-        findViewById<Button>(R.id.btn_view_logs).setOnClickListener {
+        findViewById<View>(R.id.btn_view_logs).setOnClickListener {
             showLogsDialog()
         }
 
         // 6. 配置随机打卡时间段
-        findViewById<Button>(R.id.btn_config_time).setOnClickListener {
+        findViewById<View>(R.id.btn_config_time).setOnClickListener {
             showTimeConfigDialog()
         }
 
-        findViewById<Button>(R.id.btn_manage_exceptions).setOnClickListener {
+        findViewById<View>(R.id.btn_manage_exceptions).setOnClickListener {
             showExceptionsDialog()
         }
 
@@ -165,13 +165,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 9. 前台保活通知开关（第二层保活，遇打卡遗漏时手动开启）
-        val btnKeepAlive = findViewById<Button>(R.id.btn_keepalive)
-        updateKeepAliveButtonUI(btnKeepAlive)
-        btnKeepAlive.setOnClickListener {
+        // 已重构为与权限行一致的 Switch 列表项：Switch 本身不可点（XML clickable=false），
+        // 点击事件完全由外层 keepAliveRow 统一分发，开关仅作为状态展示，避免双监听语义重叠
+        val keepAliveRow = findViewById<View>(R.id.btn_keepalive)
+        val keepAliveSwitch = findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switch_keepalive)
+        keepAliveSwitch.isChecked = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_KEEPALIVE_ENABLED, false)
+        val toggleKeepAlive = {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val isEnabled = prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
-            val newState = !isEnabled
+            val newState = !prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
             prefs.edit().putBoolean(KEY_KEEPALIVE_ENABLED, newState).apply()
+            keepAliveSwitch.isChecked = newState
 
             if (newState) {
                 androidx.core.content.ContextCompat.startForegroundService(
@@ -188,23 +192,38 @@ class MainActivity : AppCompatActivity() {
                 stopService(Intent(this, com.lark.autoclock.service.KeepAliveService::class.java))
                 Toast.makeText(this, getString(R.string.toast_keepalive_off), Toast.LENGTH_SHORT).show()
             }
-            updateKeepAliveButtonUI(btnKeepAlive)
         }
-    }
+        keepAliveRow.setOnClickListener { toggleKeepAlive() }
 
-    private fun updateKeepAliveButtonUI(button: Button) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val isEnabled = prefs.getBoolean(KEY_KEEPALIVE_ENABLED, false)
-        if (isEnabled) {
-            button.text = getString(R.string.btn_keepalive_on)
-            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                getColor(R.color.keepalive_on_bg)
-            )
-        } else {
-            button.text = getString(R.string.btn_keepalive)
-            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                getColor(R.color.keepalive_off_bg)
-            )
+        // 10. 悬浮窗权限行：点击整行直接跳转授权页（原为纯展示行，状态异常时点击无反应）
+        findViewById<View>(R.id.layout_overlay).setOnClickListener {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                )
+            } catch (e: Exception) {
+                Toast.makeText(this, getString(R.string.toast_overlay_permission), Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // 11. 精确闹钟权限行：点击整行直接跳转授权页
+        findViewById<View>(R.id.layout_alarm).setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // 部分国产 ROM 拦截精确闹钟授权页，回退到应用详情页
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            } else {
+                Toast.makeText(this, getString(R.string.toast_alarm_not_needed), Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -269,6 +288,8 @@ class MainActivity : AppCompatActivity() {
                     .setMessage(getString(R.string.dialog_msg_delete_exception, date))
                     .setPositiveButton(getString(R.string.dialog_btn_delete)) { _, _ ->
                         com.lark.autoclock.utils.LocalScheduleManager.removeException(this, date)
+                        updateConfigPreviews()
+                        updateStatusAndPermissionsUI()
                         showExceptionsDialog() // 刷新
                     }
                     .setNegativeButton(getString(R.string.dialog_btn_cancel), null)
@@ -284,6 +305,8 @@ class MainActivity : AppCompatActivity() {
                             val isWork = which == 0
                             com.lark.autoclock.utils.LocalScheduleManager.addException(this, dateStr, isWork)
                             Toast.makeText(this, getString(R.string.toast_exception_added), Toast.LENGTH_SHORT).show()
+                            updateConfigPreviews()
+                            updateStatusAndPermissionsUI()
                             showExceptionsDialog() // 刷新
                         }
                         .show()
@@ -359,6 +382,8 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // 实时更新各个卡片上的权限状态和顶部服务状态看板
         updateStatusAndPermissionsUI()
+        // 刷新设置项当前值副标题预览，无需点进弹窗即可确认生效规则
+        updateConfigPreviews()
         // 每次回到主界面都检查一次电池优化状态，但使用 SharedPreferences 避免无限弹窗
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -427,8 +452,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
+            // plainLog 用于「一键复制全部」，与 HTML 渲染版本同源，避免二次文件 IO
+            var plainLog = ""
             val logs = try {
-                logFile.readLines().takeLast(100).reversed().joinToString("<br><br>") { line ->
+                val lines = logFile.readLines().takeLast(100).reversed()
+                plainLog = lines.joinToString("\n\n")
+                lines.joinToString("<br><br>") { line ->
                     val escaped = android.text.Html.escapeHtml(line)
                     when {
                         line.contains("✅") -> "<font color='#34A853'>$escaped</font>"
@@ -462,6 +491,39 @@ class MainActivity : AppCompatActivity() {
                 }
                 scrollView.addView(textView)
 
+                // 底部「一键复制全部」：比长按拖选更友好的排查体验
+                val copyButton = android.widget.Button(this@MainActivity).apply {
+                    text = getString(R.string.dialog_btn_copy_logs)
+                    isAllCaps = false
+                    setOnClickListener {
+                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                getString(R.string.dialog_title_logs), plainLog
+                            )
+                        )
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_logs_copied), Toast.LENGTH_SHORT).show()
+                    }
+                }
+                val container = android.widget.LinearLayout(this@MainActivity).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                }
+                container.addView(
+                    scrollView,
+                    android.widget.LinearLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                )
+                container.addView(
+                    copyButton,
+                    android.widget.LinearLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(16, 0, 16, 16) }
+                )
+
                 val titleView = TextView(this@MainActivity).apply {
                     text = getString(R.string.dialog_title_logs)
                     textSize = 20f
@@ -472,7 +534,7 @@ class MainActivity : AppCompatActivity() {
 
                 AlertDialog.Builder(this@MainActivity, android.R.style.Theme_Material_Light_Dialog_Alert)
                     .setCustomTitle(titleView)
-                    .setView(scrollView)
+                    .setView(container)
                     .setPositiveButton(getString(R.string.dialog_btn_close), null)
                     .setNeutralButton(getString(R.string.dialog_btn_clear_logs)) { _, _ ->
                         lifecycleScope.launch {
@@ -512,10 +574,10 @@ class MainActivity : AppCompatActivity() {
         val tvAStart = view.findViewById<TextView>(R.id.tv_afternoon_start)
         val tvAEnd = view.findViewById<TextView>(R.id.tv_afternoon_end)
 
-        tvMStart.text = prefs.getString("morning_start", "07:30")
-        tvMEnd.text = prefs.getString("morning_end", "08:20")
-        tvAStart.text = prefs.getString("afternoon_start", "18:00")
-        tvAEnd.text = prefs.getString("afternoon_end", "18:10")
+        tvMStart.text = prefs.getString("morning_start", Constants.DEFAULT_MORNING_START)
+        tvMEnd.text = prefs.getString("morning_end", Constants.DEFAULT_MORNING_END)
+        tvAStart.text = prefs.getString("afternoon_start", Constants.DEFAULT_AFTERNOON_START)
+        tvAEnd.text = prefs.getString("afternoon_end", Constants.DEFAULT_AFTERNOON_END)
 
         val setupTimePicker = { tv: TextView ->
             tv.setOnClickListener {
@@ -553,25 +615,12 @@ class MainActivity : AppCompatActivity() {
                 val aStartStr = tvAStart.text.toString()
                 val aEndStr = tvAEnd.text.toString()
 
-                val isTimeValid = { s: String, e: String ->
-                    try {
-                        val regex = Regex("^([01]\\d|2[0-3]):([0-5]\\d)$")
-                        if (!regex.matches(s) || !regex.matches(e)) false
-                        else {
-                            val (sh, sm) = s.split(":").map { it.toInt() }
-                            val (eh, em) = e.split(":").map { it.toInt() }
-                            (eh * 60 + em) > (sh * 60 + sm)
-                        }
-                    } catch (ex: Exception) {
-                        false
-                    }
-                }
-
-                if (!isTimeValid(mStartStr, mEndStr)) {
+                // 时间校验已提取为 TimeValidator 纯函数（可单元测试）：同日时段，不支持跨午夜
+                if (!com.lark.autoclock.utils.TimeValidator.isValidSameDayRange(mStartStr, mEndStr)) {
                     Toast.makeText(this, getString(R.string.toast_save_failed_morning), Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
-                if (!isTimeValid(aStartStr, aEndStr)) {
+                if (!com.lark.autoclock.utils.TimeValidator.isValidSameDayRange(aStartStr, aEndStr)) {
                     Toast.makeText(this, getString(R.string.toast_save_failed_afternoon), Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
@@ -598,9 +647,57 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(this, getString(R.string.toast_time_config_saved_rest), Toast.LENGTH_SHORT).show()
                 }
+                // 弹窗保存后立即刷新主看板与副标题预览（Dialog 关闭不触发 onResume）
+                updateStatusAndPermissionsUI()
+                updateConfigPreviews()
             }
             .setNegativeButton(getString(R.string.dialog_btn_cancel), null)
             .show()
+    }
+
+    /**
+     * 设置项当前值副标题预览（P1）：主界面直接展示当前生效的周期、时段与例外规则。
+     */
+    private fun updateConfigPreviews() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        val mStart = prefs.getString("morning_start", Constants.DEFAULT_MORNING_START) ?: Constants.DEFAULT_MORNING_START
+        val mEnd = prefs.getString("morning_end", Constants.DEFAULT_MORNING_END) ?: Constants.DEFAULT_MORNING_END
+        val aStart = prefs.getString("afternoon_start", Constants.DEFAULT_AFTERNOON_START) ?: Constants.DEFAULT_AFTERNOON_START
+        val aEnd = prefs.getString("afternoon_end", Constants.DEFAULT_AFTERNOON_END) ?: Constants.DEFAULT_AFTERNOON_END
+        findViewById<TextView>(R.id.tv_subtitle_config_time).text =
+            getString(R.string.subtitle_config_time, weekSummary(prefs), mStart, mEnd, aStart, aEnd)
+
+        val exceptionCount = com.lark.autoclock.utils.LocalScheduleManager.getAllExceptions(this).size
+        findViewById<TextView>(R.id.tv_subtitle_exceptions).text =
+            if (exceptionCount > 0) getString(R.string.subtitle_exceptions_fmt, exceptionCount)
+            else getString(R.string.subtitle_exceptions_none)
+    }
+
+    /**
+     * 将周期勾选状态归纳为易读文案：每天 / 工作日（周一至周五）/ 逐项列举 / 未选择。
+     * 默认值与 showTimeConfigDialog 保持一致：周一至周五开启，周末关闭。
+     */
+    private fun weekSummary(prefs: android.content.SharedPreferences): String {
+        val weekLabels = listOf(
+            "cycle_mon" to getString(R.string.week_mon),
+            "cycle_tue" to getString(R.string.week_tue),
+            "cycle_wed" to getString(R.string.week_wed),
+            "cycle_thu" to getString(R.string.week_thu),
+            "cycle_fri" to getString(R.string.week_fri),
+            "cycle_sat" to getString(R.string.week_sat),
+            "cycle_sun" to getString(R.string.week_sun)
+        )
+        val defaults = listOf(true, true, true, true, true, false, false)
+        val selected = weekLabels.mapIndexed { i, (key, label) ->
+            if (prefs.getBoolean(key, defaults[i])) label else null
+        }.filterNotNull()
+        return when {
+            selected.size == 7 -> getString(R.string.week_summary_everyday)
+            selected == weekLabels.take(5).map { it.second } -> getString(R.string.week_summary_workday)
+            selected.isEmpty() -> getString(R.string.week_summary_none)
+            else -> selected.joinToString("、")
+        }
     }
 
     private fun updateStatusAndPermissionsUI() {
@@ -664,25 +761,34 @@ class MainActivity : AppCompatActivity() {
         if (isServiceRunning) {
             val status = com.lark.autoclock.utils.LocalScheduleManager.getTodayWorkdayStatus(this)
             if (status == com.lark.autoclock.utils.LocalScheduleManager.WorkdayStatus.WORKDAY) {
-                val mStart = prefs.getString("morning_start", "08:00")
-                val mEnd = prefs.getString("morning_end", "08:10")
-                val aStart = prefs.getString("afternoon_start", "18:00")
-                val aEnd = prefs.getString("afternoon_end", "18:10")
+                // 与 Constants 中共享的默认时段一致
+                val mStart = prefs.getString("morning_start", Constants.DEFAULT_MORNING_START)
+                val mEnd = prefs.getString("morning_end", Constants.DEFAULT_MORNING_END)
+                val aStart = prefs.getString("afternoon_start", Constants.DEFAULT_AFTERNOON_START)
+                val aEnd = prefs.getString("afternoon_end", Constants.DEFAULT_AFTERNOON_END)
                 tvGlobalStatus.text = getString(R.string.status_global_scheduled)
                 tvGlobalStatus.setTextColor(getColor(R.color.success_green))
-                tvGlobalStatusDesc.text = getString(R.string.status_desc_global_scheduled, mStart, mEnd, aStart, aEnd)
+                tvGlobalStatusDesc.text = getString(R.string.status_desc_global_scheduled)
                 globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.success_green_bg)))
+                // 时段胶囊：结构化展示上/下午随机窗口，替代原多行拼接文本
+                findViewById<TextView>(R.id.chip_morning).text =
+                    getString(R.string.chip_morning_window, mStart, mEnd)
+                findViewById<TextView>(R.id.chip_afternoon).text =
+                    getString(R.string.chip_afternoon_window, aStart, aEnd)
+                findViewById<View>(R.id.layout_status_chips).visibility = View.VISIBLE
             } else {
                 tvGlobalStatus.text = getString(R.string.status_global_rest)
                 tvGlobalStatus.setTextColor(getColor(R.color.primary_blue))
                 tvGlobalStatusDesc.text = getString(R.string.status_desc_global_rest)
                 globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.light_blue_bg)))
+                findViewById<View>(R.id.layout_status_chips).visibility = View.GONE
             }
         } else {
             tvGlobalStatus.text = getString(R.string.status_global_not_running)
             tvGlobalStatus.setTextColor(getColor(R.color.error_red_dark))
             tvGlobalStatusDesc.text = getString(R.string.status_desc_global_not_running)
             globalStatusCard.setCardBackgroundColor(android.content.res.ColorStateList.valueOf(getColor(R.color.error_bg)))
+            findViewById<View>(R.id.layout_status_chips).visibility = View.GONE
         }
     }
 

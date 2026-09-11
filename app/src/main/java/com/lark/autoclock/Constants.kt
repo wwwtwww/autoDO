@@ -24,6 +24,13 @@ object Constants {
     // ===== Notification Channel IDs =====
     const val CHANNEL_ID_WAKE = "autoclock_channel"
 
+    // ===== 默认打卡时段（MainActivity / ClockScheduler 共享，避免多处维护魔法字符串） =====
+    // 注意：仅支持同日时段，结束时间必须晚于开始时间，不支持跨午夜（如 23:00 ~ 01:00）
+    const val DEFAULT_MORNING_START = "07:30"
+    const val DEFAULT_MORNING_END = "08:20"
+    const val DEFAULT_AFTERNOON_START = "18:00"
+    const val DEFAULT_AFTERNOON_END = "18:10"
+
     // ===== 生命与超时配置 (ms) =====
     const val TIMEOUT_ACCESSIBILITY_SCAN = 45000L      // 无障碍扫描最长等待时间 (45s)
     const val TIMEOUT_WAKE_ACTIVITY_FALLBACK = 65000L  // WakeActivity 兜底销毁超时 (65s) — 覆盖最差重试路径 (2s+6s+45s+3s=56s) 加安全余量

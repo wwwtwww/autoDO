@@ -75,6 +75,44 @@
                     android:textSize="14sp"
                     android:textColor="@color/text_secondary"
                     android:lineSpacingMultiplier="1.3" />
+
+                <!-- 时段胶囊：工作日生效时结构化展示上/下午随机窗口 -->
+                <LinearLayout
+                    android:id="@+id/layout_status_chips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/chip_morning"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_status_chip"
+                        android:gravity="center"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="8dp"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:layout_marginEnd="6dp" />
+
+                    <TextView
+                        android:id="@+id/chip_afternoon"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_status_chip"
+                        android:gravity="center"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="8dp"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:layout_marginStart="6dp" />
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -104,65 +142,237 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
+                <!-- 主行动点：填充式大按钮，与次级设置项形成主次分级 -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_schedule_tasks"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="56dp"
+                    android:layout_margin="16dp"
                     android:text="@string/btn_start_guard"
-                    android:textColor="@color/status_green"
-                    android:textSize="15sp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="20dp"
-                    app:iconPadding="10dp"/>
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:stateListAnimator="@null"
+                    app:backgroundTint="@color/status_green"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_play_arrow"
+                    app:iconTint="@color/white"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp" />
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_gray"/>
 
-                <com.google.android.material.button.MaterialButton
+                <!-- 配置打卡周期与时间（含当前值副标题预览） -->
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/btn_config_time"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/btn_config_time"
-                    android:textColor="@color/text_dark"
-                    android:textSize="14sp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="20dp"/>
+                    android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_config_time"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_event"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tv_title_config_time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/btn_config_time"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_dark"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_config_time"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_config_time"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toTopOf="@id/tv_subtitle_config_time"
+                        app:layout_constraintVertical_chainStyle="packed" />
+
+                    <TextView
+                        android:id="@+id/tv_subtitle_config_time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_config_time"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_config_time"
+                        app:layout_constraintTop_toBottomOf="@id/tv_title_config_time"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageView
+                        android:id="@+id/chevron_config_time"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_hint"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_gray"/>
 
-                <com.google.android.material.button.MaterialButton
+                <!-- 管理例外日期（含当前值副标题预览） -->
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/btn_manage_exceptions"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/btn_manage_exceptions"
-                    android:textColor="@color/text_dark"
-                    android:textSize="14sp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="20dp"/>
+                    android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_manage_exceptions"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_beach_access"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tv_title_manage_exceptions"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/btn_manage_exceptions"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_dark"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_manage_exceptions"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_manage_exceptions"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toTopOf="@id/tv_subtitle_exceptions"
+                        app:layout_constraintVertical_chainStyle="packed" />
+
+                    <TextView
+                        android:id="@+id/tv_subtitle_exceptions"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_manage_exceptions"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_manage_exceptions"
+                        app:layout_constraintTop_toBottomOf="@id/tv_title_manage_exceptions"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageView
+                        android:id="@+id/chevron_manage_exceptions"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_hint"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_gray"/>
 
-                <com.google.android.material.button.MaterialButton
+                <!-- 查看历史打卡日志 -->
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/btn_view_logs"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/btn_view_logs"
-                    android:textColor="@color/text_dark"
-                    android:textSize="14sp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="20dp"/>
+                    android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_view_logs"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_assignment"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tv_title_view_logs"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/btn_view_logs"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_dark"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_view_logs"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_view_logs"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toTopOf="@id/tv_subtitle_logs"
+                        app:layout_constraintVertical_chainStyle="packed" />
+
+                    <TextView
+                        android:id="@+id/tv_subtitle_logs"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/subtitle_logs"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_view_logs"
+                        app:layout_constraintEnd_toStartOf="@id/chevron_view_logs"
+                        app:layout_constraintTop_toBottomOf="@id/tv_title_view_logs"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <ImageView
+                        android:id="@+id/chevron_view_logs"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_hint"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -203,6 +413,18 @@
                     android:focusable="true"
                     android:paddingHorizontal="20dp">
 
+                    <ImageView
+                        android:id="@+id/icon_accessibility"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_accessibility"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
                     <TextView
                         android:id="@+id/tv_accessibility_title"
                         android:layout_width="0dp"
@@ -211,7 +433,9 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_dark"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_accessibility"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_accessibility"
                         app:layout_constraintBottom_toTopOf="@id/tv_accessibility_desc"
@@ -225,7 +449,11 @@
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_accessibility"
                         app:layout_constraintTop_toBottomOf="@id/tv_accessibility_title"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_accessibility"
                         app:layout_constraintBottom_toBottomOf="parent" />
@@ -246,6 +474,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_light"/>
 
                 <!-- 自启动 -->
@@ -258,6 +487,18 @@
                     android:focusable="true"
                     android:paddingHorizontal="20dp">
 
+                    <ImageView
+                        android:id="@+id/icon_auto_start"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_autorenew"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
                     <TextView
                         android:id="@+id/tv_autostart_title"
                         android:layout_width="0dp"
@@ -266,7 +507,9 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_dark"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_auto_start"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_autostart"
                         app:layout_constraintBottom_toTopOf="@id/tv_autostart_desc"
@@ -280,7 +523,11 @@
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_auto_start"
                         app:layout_constraintTop_toBottomOf="@id/tv_autostart_title"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_autostart"
                         app:layout_constraintBottom_toBottomOf="parent" />
@@ -300,6 +547,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_light"/>
 
                 <!-- 电池优化 -->
@@ -312,6 +560,18 @@
                     android:focusable="true"
                     android:paddingHorizontal="20dp">
 
+                    <ImageView
+                        android:id="@+id/icon_battery"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_battery"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
                     <TextView
                         android:id="@+id/tv_battery_title"
                         android:layout_width="0dp"
@@ -320,7 +580,9 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_dark"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_battery"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_battery"
                         app:layout_constraintBottom_toTopOf="@id/tv_battery_desc"
@@ -334,7 +596,11 @@
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_battery"
                         app:layout_constraintTop_toBottomOf="@id/tv_battery_title"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_battery"
                         app:layout_constraintBottom_toBottomOf="parent" />
@@ -355,14 +621,30 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_light"/>
 
-                <!-- 悬浮窗 -->
+                <!-- 悬浮窗（P0：整行可点，直接跳转授权页） -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/layout_overlay"
                     android:layout_width="match_parent"
                     android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_overlay"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_chat_bubble"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
 
                     <TextView
                         android:id="@+id/tv_overlay_title"
@@ -372,7 +654,9 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_dark"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_overlay"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_overlay"
                         app:layout_constraintBottom_toTopOf="@id/tv_overlay_desc"
@@ -386,7 +670,11 @@
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_overlay"
                         app:layout_constraintTop_toBottomOf="@id/tv_overlay_title"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_overlay"
                         app:layout_constraintBottom_toBottomOf="parent" />
@@ -407,14 +695,30 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_light"/>
 
-                <!-- 精确闹钟 -->
+                <!-- 精确闹钟（P0：整行可点，直接跳转授权页） -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/layout_alarm"
                     android:layout_width="match_parent"
                     android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_alarm"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_alarm"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
 
                     <TextView
                         android:id="@+id/tv_alarm_title"
@@ -424,7 +728,9 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_dark"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_alarm"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_alarm"
                         app:layout_constraintBottom_toTopOf="@id/tv_alarm_desc"
@@ -438,7 +744,11 @@
                         android:textSize="12sp"
                         android:textColor="@color/text_secondary"
                         android:layout_marginTop="2dp"
-                        app:layout_constraintStart_toStartOf="parent"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_alarm"
                         app:layout_constraintTop_toBottomOf="@id/tv_alarm_title"
                         app:layout_constraintEnd_toStartOf="@id/tv_status_alarm"
                         app:layout_constraintBottom_toBottomOf="parent" />
@@ -459,19 +769,74 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
+                    android:layout_marginStart="76dp"
                     android:background="@color/divider_light"/>
 
-                <!-- 前台保活通知开关 -->
-                <com.google.android.material.button.MaterialButton
+                <!-- 前台保活通知开关（P0：重构为与权限行一致的 Switch 列表项） -->
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/btn_keepalive"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/btn_keepalive"
-                    android:textColor="@color/keepalive_text"
-                    android:textSize="14sp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="20dp"/>
+                    android:layout_height="72dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="20dp">
+
+                    <ImageView
+                        android:id="@+id/icon_keepalive"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_badge"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_notifications"
+                        app:tint="@color/primary_blue"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tv_keepalive_title"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/title_keepalive"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_dark"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/icon_keepalive"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/switch_keepalive"
+                        app:layout_constraintBottom_toTopOf="@id/tv_keepalive_desc"
+                        app:layout_constraintVertical_chainStyle="packed" />
+
+                    <TextView
+                        android:id="@+id/tv_keepalive_desc"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/desc_keepalive"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        app:layout_constraintStart_toEndOf="@id/icon_keepalive"
+                        app:layout_constraintTop_toBottomOf="@id/tv_keepalive_title"
+                        app:layout_constraintEnd_toStartOf="@id/switch_keepalive"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_keepalive"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

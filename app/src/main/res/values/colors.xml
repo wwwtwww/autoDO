@@ -47,10 +47,8 @@
     <!-- 下午时段橙色 -->
     <color name="afternoon_orange">#C75400</color>
 
-    <!-- 保活开关 -->
-    <color name="keepalive_on_bg">#FFF3E0</color>
-    <color name="keepalive_off_bg">#FFF8E1</color>
-    <color name="keepalive_text">#E65100</color>
+    <!-- 状态看板时段胶囊底色（白色 25% 透明度，叠在绿/蓝状态卡上） -->
+    <color name="status_chip_bg">#40FFFFFF</color>
 
     <!-- 日志 -->
     <color name="log_text_gray">@color/text_secondary</color>

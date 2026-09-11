@@ -123,8 +123,8 @@ object ClockScheduler {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         val (mStartHour, mStartMin, mEndHour, mEndMin) = try {
-            val s = (prefs.getString("morning_start", "07:30") ?: "07:30").split(":")
-            val e = (prefs.getString("morning_end", "08:20") ?: "08:20").split(":")
+            val s = (prefs.getString("morning_start", Constants.DEFAULT_MORNING_START) ?: Constants.DEFAULT_MORNING_START).split(":")
+            val e = (prefs.getString("morning_end", Constants.DEFAULT_MORNING_END) ?: Constants.DEFAULT_MORNING_END).split(":")
             listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
         } catch (ex: Exception) {
             listOf(7, 30, 8, 20)
@@ -136,8 +136,8 @@ object ClockScheduler {
 
         // 读取下班配置，默认 18:00 ~ 18:10
         val (aStartHour, aStartMin, aEndHour, aEndMin) = try {
-            val s = (prefs.getString("afternoon_start", "18:00") ?: "18:00").split(":")
-            val e = (prefs.getString("afternoon_end", "18:10") ?: "18:10").split(":")
+            val s = (prefs.getString("afternoon_start", Constants.DEFAULT_AFTERNOON_START) ?: Constants.DEFAULT_AFTERNOON_START).split(":")
+            val e = (prefs.getString("afternoon_end", Constants.DEFAULT_AFTERNOON_END) ?: Constants.DEFAULT_AFTERNOON_END).split(":")
             listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
         } catch (ex: Exception) {
             listOf(18, 0, 18, 10)
@@ -189,8 +189,8 @@ object ClockScheduler {
 
         // 读取上班配置，默认 07:30 ~ 08:20
         val (mStartHour, mStartMin, mEndHour, mEndMin) = try {
-            val s = (prefs.getString("morning_start", "07:30") ?: "07:30").split(":")
-            val e = (prefs.getString("morning_end", "08:20") ?: "08:20").split(":")
+            val s = (prefs.getString("morning_start", Constants.DEFAULT_MORNING_START) ?: Constants.DEFAULT_MORNING_START).split(":")
+            val e = (prefs.getString("morning_end", Constants.DEFAULT_MORNING_END) ?: Constants.DEFAULT_MORNING_END).split(":")
             listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
         } catch (ex: Exception) {
             Log.e("AutoClock", "解析上午时间配置失败，回退默认 07:30~08:20: ${ex.message}")
@@ -212,8 +212,8 @@ object ClockScheduler {
 
         // 读取下班配置，默认 18:00 ~ 18:10
         val (aStartHour, aStartMin, aEndHour, aEndMin) = try {
-            val s = (prefs.getString("afternoon_start", "18:00") ?: "18:00").split(":")
-            val e = (prefs.getString("afternoon_end", "18:10") ?: "18:10").split(":")
+            val s = (prefs.getString("afternoon_start", Constants.DEFAULT_AFTERNOON_START) ?: Constants.DEFAULT_AFTERNOON_START).split(":")
+            val e = (prefs.getString("afternoon_end", Constants.DEFAULT_AFTERNOON_END) ?: Constants.DEFAULT_AFTERNOON_END).split(":")
             listOf(s[0].toInt(), s[1].toInt(), e[0].toInt(), e[1].toInt())
         } catch (ex: Exception) {
             Log.e("AutoClock", "解析下午时间配置失败，回退默认 18:00~18:10: ${ex.message}")

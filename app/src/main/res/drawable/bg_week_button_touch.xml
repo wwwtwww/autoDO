@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    星期小球的"视触分离"触控背景：
+    视觉上仍保持居中的 32dp 圆形小球（引用 bg_week_button），
+    但 CheckBox 本身通过 layout_weight 撑满整列、高度 48dp，
+    消除小屏折行与误触的矛盾。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/bg_week_button"
+        android:gravity="center"
+        android:width="32dp"
+        android:height="32dp" />
+</layer-list>

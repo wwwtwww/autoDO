@@ -14,30 +14,33 @@
     <string name="section_permissions">系统权限与守护配置</string>
     <string name="section_test">开发者与测试工具（调试专用）</string>
 
-    <!-- 核心功能按钮 -->
-    <string name="btn_start_guard">🚀  立即启用今日自动打卡</string>
-    <string name="btn_config_time">📅  配置打卡周期与时间</string>
-    <string name="btn_manage_exceptions">⛱️  管理例外日期 (调休与节假日)</string>
-    <string name="btn_view_logs">📝  查看历史打卡日志</string>
+    <!-- 核心功能入口（图标由 Material 矢量图标承担，文案不再携带 Emoji） -->
+    <string name="btn_start_guard">立即启用今日自动打卡</string>
+    <string name="btn_config_time">配置打卡周期与时间</string>
+    <string name="btn_manage_exceptions">管理例外日期 (调休与节假日)</string>
+    <string name="btn_view_logs">查看历史打卡日志</string>
 
-    <!-- 权限行标题与描述 -->
-    <string name="title_accessibility">🛡️  开启系统无障碍服务</string>
+    <!-- 权限行标题与描述（前缀图标已矢量化，文案不再携带 Emoji） -->
+    <string name="title_accessibility">开启系统无障碍服务</string>
     <string name="desc_accessibility">核心权限，用于自动识别飞书界面并点击打卡</string>
-    <string name="title_auto_start">🔄  允许开机自启动权限</string>
+    <string name="title_auto_start">允许开机自启动权限</string>
     <string name="desc_auto_start">手机重启后无需手动打开 App 即可恢复打卡</string>
-    <string name="title_battery">🔋  关闭系统电池能耗优化</string>
+    <string name="title_battery">关闭系统电池能耗优化</string>
     <string name="desc_battery">防止系统在后台自动关闭本应用</string>
-    <string name="title_overlay">💬  开启系统悬浮窗权限</string>
+    <string name="title_overlay">开启系统悬浮窗权限</string>
     <string name="desc_overlay">允许在锁屏时弹出打卡界面并自动亮屏</string>
-    <string name="title_alarm">⏰  精确闹钟触发权限 (Android 12+)</string>
+    <string name="title_alarm">精确闹钟触发权限 (Android 12+)</string>
     <string name="desc_alarm">让定时打卡闹钟能在后台精准按时触发</string>
-    <string name="btn_keepalive">🔔  前台保活通知（遇遗漏再开启）</string>
+
+    <!-- 前台保活（列表项 + Switch 形态） -->
+    <string name="title_keepalive">前台保活通知</string>
+    <string name="desc_keepalive">第二层保活：常驻通知防止进程被挂起，遇打卡遗漏时开启</string>
 
     <!-- 权限状态标签（初始值，运行时动态更新） -->
     <string name="status_unauthorized">未授权 🔴</string>
     <string name="status_not_closed">未关闭 🔴</string>
     <string name="status_not_ready">未就绪 🔴</string>
-    <string name="status_go_config">去配置 🛡️</string>
+    <string name="status_go_config">去配置</string>
 
     <!-- 测试区 -->
     <string name="test_warning_title">⚠️ 模拟测试注意事项：</string>
@@ -56,9 +59,9 @@
     <string name="week_sat">六</string>
     <string name="week_sun">日</string>
     <string name="dialog_title_morning_random">上班打卡随机时段</string>
-    <string name="dialog_desc_morning_random">系统将在此时间段内随机选一个时刻自动打卡，建议覆盖正常上班时间。</string>
+    <string name="dialog_desc_morning_random">系统将在此时间段内随机选一个时刻自动打卡，建议覆盖正常上班时间。结束时间须晚于开始时间，不支持跨午夜时段（如 23:00 ~ 01:00）。</string>
     <string name="dialog_title_afternoon_random">下班打卡随机时段</string>
-    <string name="dialog_desc_afternoon_random">系统将在此时间段内随机选一个时刻自动打卡，建议设在下班后的合理时间。</string>
+    <string name="dialog_desc_afternoon_random">系统将在此时间段内随机选一个时刻自动打卡，建议设在下班后的合理时间。结束时间须晚于开始时间，不支持跨午夜时段（如 23:00 ~ 01:00）。</string>
     <string name="dialog_range_separator">至</string>
     <string name="default_morning_start">07:30</string>
     <string name="default_morning_end">08:20</string>
@@ -84,8 +87,14 @@
     <string name="toast_time_config_saved_scheduled">时间配置已保存，今日闹钟已重新调度！</string>
     <string name="toast_time_config_saved_rest">时间配置已保存，今天为休息日不排班。</string>
 
-    <!-- 保活开关动态文案 -->
-    <string name="btn_keepalive_on">🔔  前台保活：已开启（点击关闭）</string>
+    <!-- 设置项当前值副标题预览（P1：无需点进弹窗即可确认生效规则） -->
+    <string name="subtitle_config_time">周期：%1$s · 上午 %2$s ~ %3$s / 下午 %4$s ~ %5$s</string>
+    <string name="subtitle_exceptions_fmt">已配置 %1$d 个特殊日期</string>
+    <string name="subtitle_exceptions_none">未配置，完全按基础周期执行</string>
+    <string name="subtitle_logs">最近 100 条打卡与保活记录</string>
+    <string name="week_summary_everyday">每天</string>
+    <string name="week_summary_workday">工作日（周一至周五）</string>
+    <string name="week_summary_none">未选择任何打卡日</string>
 
     <!-- 对话框文案 -->
     <string name="dialog_title_exceptions">例外日期管理</string>
@@ -109,14 +118,19 @@
     <string name="status_global_scheduled">今日打卡已安排 🟢</string>
     <string name="status_global_rest">今天休息，打卡已避让 💤</string>
     <string name="status_global_not_running">打卡服务未完全运行 🔴</string>
-    <string name="status_desc_global_scheduled">今天为打卡工作日。打卡随机时间已生成：\n☀️ 上午打卡在 %1$s ~ %2$s 之间\n🌙 下午打卡在 %3$s ~ %4$s 之间</string>
+    <string name="status_desc_global_scheduled">随机打卡时刻已生成，将在下方窗口内自动触发</string>
     <string name="status_desc_global_rest">今天为休息日或节假日，不会执行自动打卡。</string>
     <string name="status_desc_global_not_running">无障碍权限未开启，自动打卡无法工作。请在下方点击开启。</string>
+
+    <!-- 状态看板时段胶囊（P1：结构化窗口展示） -->
+    <string name="chip_morning_window">上午窗口 %1$s ~ %2$s</string>
+    <string name="chip_afternoon_window">下午窗口 %1$s ~ %2$s</string>
 
     <!-- 补充 Toast 与 Dialog 文案 -->
     <string name="toast_full_screen_notification">请允许全屏通知，否则锁屏时可能无法唤醒打卡界面</string>
     <string name="toast_overlay_permission">请开启悬浮窗权限，否则锁屏打卡将无法唤醒屏幕！</string>
     <string name="toast_exact_alarm_permission">请授权精确闹钟权限，否则打卡闹钟将无法准时触发！</string>
+    <string name="toast_alarm_not_needed">当前系统版本无需手动授权精确闹钟</string>
     <string name="toast_no_logs">暂无打卡记录</string>
     <string name="toast_logs_cleared">记录已清空</string>
     <string name="toast_adb_auto_enabled">已通过 ADB 授权自动开启无障碍服务！</string>
@@ -125,6 +139,8 @@
     <string name="toast_read_log_failed">读取日志失败: %1$s</string>
     <string name="dialog_title_logs">历史打卡记录</string>
     <string name="dialog_btn_clear_logs">清空记录</string>
+    <string name="dialog_btn_copy_logs">一键复制全部</string>
+    <string name="toast_logs_copied">日志已复制到剪贴板</string>
     <string name="dialog_title_time_config">配置基础周期与时间段</string>
     <string name="exception_type_work_short">强制打卡 (补班)</string>
     <string name="exception_type_rest_short">强制休息 (节假日)</string>
