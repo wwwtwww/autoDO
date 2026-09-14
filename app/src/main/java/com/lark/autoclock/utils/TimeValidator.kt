@@ -32,4 +32,15 @@ object TimeValidator {
         val e = toMinutesOfDay(end)
         return s >= 0 && e >= 0 && e > s
     }
+
+    /**
+     * 判断给定 HH:mm 时刻是否已早于当前时刻（即该时刻是否已过去）。
+     * 可选传入 Calendar 以便单测注入固定基准时间。
+     */
+    fun isTimePassed(time: String, cal: java.util.Calendar = java.util.Calendar.getInstance()): Boolean {
+        val targetMinutes = toMinutesOfDay(time)
+        if (targetMinutes < 0) return false
+        val currentMinutes = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+        return currentMinutes > targetMinutes
+    }
 }

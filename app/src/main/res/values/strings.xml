@@ -16,6 +16,7 @@
 
     <!-- 核心功能入口（图标由 Material 矢量图标承担，文案不再携带 Emoji） -->
     <string name="btn_start_guard">立即启用今日自动打卡</string>
+    <string name="btn_refresh_guard">重新同步 / 刷新今日守护</string>
     <string name="btn_config_time">配置打卡周期与时间</string>
     <string name="btn_manage_exceptions">管理例外日期 (调休与节假日)</string>
     <string name="btn_view_logs">查看历史打卡日志</string>
@@ -91,7 +92,21 @@
     <string name="subtitle_config_time">周期：%1$s · 上午 %2$s ~ %3$s / 下午 %4$s ~ %5$s</string>
     <string name="subtitle_exceptions_fmt">已配置 %1$d 个特殊日期</string>
     <string name="subtitle_exceptions_none">未配置，完全按基础周期执行</string>
-    <string name="subtitle_logs">最近 100 条打卡与保活记录</string>
+    <string name="subtitle_logs">查看近期打卡成败与系统调度日志</string>
+    <string name="status_clock_done">今日已完成 ✅</string>
+    <string name="status_clock_pending">等待自动触发 ⏳</string>
+    <string name="status_clock_missed">已过窗口未打卡 ⚠️</string>
+    <string name="status_autostart_configured">已配置 🟢</string>
+    <string name="toast_autostart_configured">已确认开机自启动为已配置状态</string>
+    <string name="toast_autostart_reset">已重置为未配置状态</string>
+    <string name="dialog_title_autostart_confirm">自启动权限确认</string>
+    <string name="dialog_msg_autostart_confirm">您是否已在系统设置中为 autoDO 开启了「允许自启动」？</string>
+    <string name="dialog_btn_autostart_enabled">已开启</string>
+    <string name="dialog_btn_autostart_later">未开启 / 稍后再说</string>
+    <string name="dialog_title_autostart_manage">自启动配置管理</string>
+    <string name="dialog_msg_autostart_manage">当前此项已标记为「已配置 🟢」。若您此前在系统设置中关闭了自启动，可在此重置状态或重新前往设置。</string>
+    <string name="dialog_btn_autostart_reopen">重新前往设置</string>
+    <string name="dialog_btn_autostart_reset">重置为未配置</string>
     <string name="week_summary_everyday">每天</string>
     <string name="week_summary_workday">工作日（周一至周五）</string>
     <string name="week_summary_none">未选择任何打卡日</string>

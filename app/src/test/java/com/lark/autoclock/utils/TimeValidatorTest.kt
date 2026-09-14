@@ -91,4 +91,24 @@ class TimeValidatorTest {
         assertFalse(TimeValidator.isValidSameDayRange("07:30", "24:00"))
         assertFalse(TimeValidator.isValidSameDayRange("", "08:20"))
     }
+
+    // ===== isTimePassed =====
+
+    @Test
+    fun testIsTimePassed() {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 12)
+        cal.set(java.util.Calendar.MINUTE, 30)
+
+        // 目标时间 08:20 早于 12:30 -> 已过期
+        assertTrue(TimeValidator.isTimePassed("08:20", cal))
+        // 目标时间 12:29 早于 12:30 -> 已过期
+        assertTrue(TimeValidator.isTimePassed("12:29", cal))
+        // 目标时间 12:30 等于当前时刻 -> 尚未超过
+        assertFalse(TimeValidator.isTimePassed("12:30", cal))
+        // 目标时间 18:10 晚于 12:30 -> 尚未到达
+        assertFalse(TimeValidator.isTimePassed("18:10", cal))
+        // 格式非法 -> 判定为未过期 (false 安全回退)
+        assertFalse(TimeValidator.isTimePassed("invalid", cal))
+    }
 }
