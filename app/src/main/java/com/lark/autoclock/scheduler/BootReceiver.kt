@@ -15,6 +15,9 @@ class BootReceiver : BroadcastReceiver() {
             val checkIntent = Intent(context, DailySetupReceiver::class.java)
             context.sendBroadcast(checkIntent)
 
+            // 注册 WorkManager 每日健康检查（异构兜底，KEEP 策略下幂等）
+            AlarmHealthCheckWorker.enqueue(context)
+
             // 恢复前台保活服务（如果用户之前已开启）
             val prefs = context.getSharedPreferences(ClockScheduler.PREFS_NAME, Context.MODE_PRIVATE)
             if (prefs.getBoolean(ClockScheduler.KEY_KEEPALIVE_ENABLED, false)) {

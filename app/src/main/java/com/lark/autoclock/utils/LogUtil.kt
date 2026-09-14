@@ -15,8 +15,10 @@ import java.io.File
 object LogUtil {
     private const val TAG = "LogUtil"
     private const val LOG_FILE_NAME = "clock_log.txt"
-    private const val MAX_LINES = 250
-    private const val KEEP_LINES = 200
+    // 调度链路可观测化后日志量增长至约 8~12 行/天（含打卡记录），
+    // 500/400 行容量可保留约 1~2 个月历史，避免打卡成败记录被调度日志过早冲刷
+    private const val MAX_LINES = 500
+    private const val KEEP_LINES = 400
     private val logLock = Any()
 
     fun getLogFile(context: Context): File = File(context.filesDir, LOG_FILE_NAME)
@@ -27,7 +29,7 @@ object LogUtil {
                 val logFile = getLogFile(context)
                 logFile.appendText(logLine)
 
-                // 限制文件行数，保留最近 200 行防止无限膨胀（降频：超过 250 行才裁剪）
+                // 限制文件行数，保留最近 400 行防止无限膨胀（降频：超过 500 行才裁剪）
                 val lines = logFile.readLines()
                 if (lines.size > MAX_LINES) {
                     logFile.writeText(lines.takeLast(KEEP_LINES).joinToString("\n") + "\n")

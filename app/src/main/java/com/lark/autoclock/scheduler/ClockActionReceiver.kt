@@ -13,6 +13,7 @@ import com.lark.autoclock.Constants
 import com.lark.autoclock.R
 import com.lark.autoclock.WakeActivity
 import com.lark.autoclock.utils.NotificationUtil
+import com.lark.autoclock.utils.ScheduleLogger
 
 class ClockActionReceiver : BroadcastReceiver() {
     companion object {
@@ -42,7 +43,13 @@ class ClockActionReceiver : BroadcastReceiver() {
         val clockType = intent.getStringExtra(Constants.EXTRA_CLOCK_TYPE) ?: Constants.CLOCK_TYPE_UNKNOWN
         val delayedRetryCount = intent.getIntExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, 0)
         val unconfirmedRetryCount = intent.getIntExtra(Constants.EXTRA_UNCONFIRMED_RETRY_COUNT, 0)
-        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！类型: $clockType, 延迟重试计数: $delayedRetryCount, 未确认重试计数: $unconfirmedRetryCount ===")
+        val alarmSource = intent.getStringExtra(Constants.EXTRA_ALARM_SOURCE) ?: Constants.ALARM_SOURCE_UNKNOWN
+        Log.d("AutoClock", "=== ClockActionReceiver.onReceive 已执行！类型: $clockType, 来源: $alarmSource, 延迟重试计数: $delayedRetryCount, 未确认重试计数: $unconfirmedRetryCount ===")
+        ScheduleLogger.log(context, "打卡闹钟触发: $clockType（来源: $alarmSource）")
+
+        // 调度链自愈：任何打卡闹钟被触发，都顺手重武装凌晨主备调度链，
+        // 防止凌晨单点被 Doze 吞掉后整条链永久失聪（幂等操作，可安全重复调用）
+        ClockScheduler.scheduleDailySetup(context)
 
         // ======== 第 1 层：最底层的 CPU + 屏幕 WakeLock（确保 CPU 不会在中途睡回去）========
         // FULL_WAKE_LOCK 已废弃，但 BroadcastReceiver 无 Window，无法使用 WindowManager Flags。

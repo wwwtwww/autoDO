@@ -164,4 +164,6 @@
     <string name="notif_keepalive_text">保活运行中，确保定时打卡不遗漏</string>
     <string name="notif_disconnect_title">无障碍服务已断连</string>
     <string name="notif_disconnect_text">autoDO 无法自动打卡，点击重新开启无障碍服务</string>
+    <string name="notif_alarm_perm_title">autoDO 精确闹钟权限已失效</string>
+    <string name="notif_alarm_perm_text">打卡闹钟已停止下发，点击前往设置重新授权，否则将漏打卡</string>
 </resources>

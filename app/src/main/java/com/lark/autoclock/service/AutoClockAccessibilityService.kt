@@ -154,6 +154,9 @@ class AutoClockAccessibilityService : AccessibilityService() {
                 val msg = "${retryPrefix}极速打卡成功！检测到: $matchedText"
                 recordClockResult(confirmed = true, detail = msg)
                 timeoutRunnable?.let { handler.removeCallbacks(it) } // 精准取消超时检测
+                // 记录完成状态位：拦截白天乱序入口（WorkManager 健康检查/开机广播）的重复补打
+                // 注意：滚动保底不放在这里，而是统一收敛到 goHomeAndReset，确保未确认/失败路径也能布防
+                com.lark.autoclock.scheduler.ClockScheduler.markClockCompleted(applicationContext, currentClockType)
                 goHomeAndReset()
                 return
             }
@@ -211,8 +214,14 @@ class AutoClockAccessibilityService : AccessibilityService() {
 
     /**
      * 返回桌面并重置状态
+     *
+     * 入口处的滚动保底：无论本次打卡是「已确认成功」「超时未确认」还是「拉起飞书失败」，
+     * 打卡生命周期都已闭环，统一在此为下一工作日布设保底闹钟，
+     * 将无闹钟保护的空窗期从最长约 63h（周五傍晚→周一凌晨）压缩到 24h 以内。
+     * （scheduleRollingFallbackAfterClock 内部会过滤「测试」等非正式类型，重复调用幂等覆盖）
      */
     private fun goHomeAndReset() {
+        com.lark.autoclock.scheduler.ClockScheduler.scheduleRollingFallbackAfterClock(applicationContext, currentClockType)
         currentState = ClockState.DONE
         retryCount = 0
         handler.postDelayed({

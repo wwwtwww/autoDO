@@ -54,6 +54,9 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+        // 注册 WorkManager 每日闹钟健康检查（异构兜底，KEEP 策略下幂等）
+        com.lark.autoclock.scheduler.AlarmHealthCheckWorker.enqueue(this)
+
         // 1. 跳转无障碍设置 / 自动开启（含 Thread.sleep 的 toggle 逻辑必须异步执行，避免主线程卡顿）
         findViewById<View>(R.id.btn_enable_accessibility).setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -462,6 +465,7 @@ class MainActivity : AppCompatActivity() {
                     when {
                         line.contains("✅") -> "<font color='#34A853'>$escaped</font>"
                         line.contains("⚠️") -> "<font color='#EA4335'>$escaped</font>"
+                        line.contains("❌") -> "<font color='#EA4335'>$escaped</font>"
                         else -> escaped
                     }
                 }
