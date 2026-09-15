@@ -15,6 +15,11 @@ import androidx.core.app.NotificationCompat
 import com.lark.autoclock.Constants
 import com.lark.autoclock.R
 import com.lark.autoclock.utils.NotificationUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * 前台保活服务（第二层保活选项）。
@@ -37,6 +42,10 @@ class KeepAliveService : Service() {
     }
 
     private val handler = Handler(Looper.getMainLooper())
+
+    // 后台作用域：承载含 Thread.sleep(300) 的无障碍自愈调用。
+    // healthCheckRunnable 运行在主线程 Looper 上，同步调用会造成主线程 300ms 阻塞。
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val healthCheckRunnable = object : Runnable {
         override fun run() {
@@ -87,29 +96,26 @@ class KeepAliveService : Service() {
         val instanceAlive = AutoClockAccessibilityService.instance != null
         if (enabledInSettings && !instanceAlive) {
             Log.w(TAG, "健康检测：无障碍在系统设置中已启用但 instance 为 null，尝试自动修复...")
-            
-            val autoHealed = com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)
-            
-            if (autoHealed) {
-                Log.i(TAG, "健康检测：已通过 ADB 权限成功拉起无障碍服务")
-            } else {
-                Log.w(TAG, "健康检测：无障碍自动拉起失败或未授权，发送断连告警通知")
-                sendAccessibilityAlertNotification()
+
+            serviceScope.launch {
+                val autoHealed = com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(applicationContext)
+
+                // NotificationManager.notify 线程安全，可直接在 IO 线程发送
+                if (autoHealed) {
+                    Log.i(TAG, "健康检测：已通过 ADB 权限成功拉起无障碍服务")
+                } else {
+                    Log.w(TAG, "健康检测：无障碍自动拉起失败或未授权，发送断连告警通知")
+                    sendAccessibilityAlertNotification()
+                }
             }
         }
     }
 
     /**
-     * 检查系统设置中是否已启用本应用的无障碍服务
+     * 检查系统设置中是否已启用本应用的无障碍服务（统一委托给 AccessibilityAutoEnableUtil 精确匹配）
      */
-    private fun isAccessibilityEnabledInSettings(): Boolean {
-        val enabledServices = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-        val serviceName = packageName + "/" + AutoClockAccessibilityService::class.java.name
-        return enabledServices?.split(":")?.any { it.trim() == serviceName } == true
-    }
+    private fun isAccessibilityEnabledInSettings(): Boolean =
+        com.lark.autoclock.utils.AccessibilityAutoEnableUtil.isServiceEnabledInSettings(this)
 
     /**
      * 发送高优先级告警通知，提醒用户无障碍服务已断连
@@ -145,6 +151,7 @@ class KeepAliveService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(healthCheckRunnable)
+        serviceScope.cancel()
         super.onDestroy()
         Log.d(TAG, "前台保活服务已停止")
     }

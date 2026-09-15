@@ -28,6 +28,12 @@ adb shell pm grant com.lark.autoclock android.permission.WRITE_SECURE_SETTINGS
 
 echo.
 echo [6/6] 正在强制开启无障碍服务...
+echo.
+echo 警告：此步骤会【覆盖】系统无障碍服务列表（enabled_accessibility_services）！
+echo       若该设备上还运行着其他无障碍软件（如自动跳过、李跳跳等），它们将被关闭。
+echo       本脚本专为「打卡专用备用机」设计；如是日常用机，请手动到系统设置中开启无障碍。
+echo.
+pause
 adb shell settings put secure enabled_accessibility_services com.lark.autoclock/com.lark.autoclock.service.AutoClockAccessibilityService
 adb shell settings put secure accessibility_enabled 1
 

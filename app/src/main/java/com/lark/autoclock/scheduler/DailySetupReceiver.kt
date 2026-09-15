@@ -62,13 +62,13 @@ class DailySetupReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e("AutoClock", "凌晨调度任务异常: ${e.message}", e)
                 ScheduleLogger.log(context, "❌凌晨调度任务异常: ${e.message}")
-                
-                // 安全降级：如果判断逻辑本身崩溃，尽量兜底
+
+                // Fail-Open 安全降级（宁多打勿漏打）：若崩溃源头就是 getTodayWorkdayStatus
+                // （如 SharedPreferences 损坏/解析异常），降级路径不能再调用同一方法（必抛同样异常），
+                // 直接按工作日兜底下发打卡闹钟。scheduleTodayClockActions 内含完成状态检查，不会重复打卡。
                 try {
-                    val status = LocalScheduleManager.getTodayWorkdayStatus(context)
-                    if (status == LocalScheduleManager.WorkdayStatus.WORKDAY) {
-                        ClockScheduler.scheduleTodayClockActions(context)
-                    }
+                    ClockScheduler.scheduleTodayClockActions(context)
+                    ScheduleLogger.log(context, "凌晨调度异常后已按工作日兜底下发打卡闹钟")
                 } catch (fallbackEx: Exception) {
                     Log.e("AutoClock", "降级补发打卡闹钟也失败: ${fallbackEx.message}", fallbackEx)
                 }

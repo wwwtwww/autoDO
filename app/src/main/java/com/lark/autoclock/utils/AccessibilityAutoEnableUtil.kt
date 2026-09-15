@@ -18,15 +18,30 @@ object AccessibilityAutoEnableUtil {
     }
 
     /**
+     * 全局统一的无障碍服务启用检测：按冒号分割后对扁平化组件名做精确匹配。
+     * 禁止使用 contains() 子串匹配——若存在同包名前缀的衍生组件
+     * （如 AutoClockAccessibilityService2），子串匹配会产生假阳性。
+     * MainActivity / KeepAliveService / 本工具内部必须统一走此入口。
+     */
+    fun isServiceEnabledInSettings(context: Context): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val serviceName = context.packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
+        return enabledServices.split(":").any { it.trim() == serviceName }
+    }
+
+    /**
      * 自动开启或强制重绑无障碍服务（前提：已通过 adb shell pm grant 赋予了 WRITE_SECURE_SETTINGS 权限）
      *
      * 当服务已在系统启用列表中但实例为 null（系统在 Doze 中杀掉了服务进程），
      * 需要通过 toggle（移除 → 写入 → 等待 → 重新添加 → 写入）强制系统重绑服务。
      * 直接写相同的值不会触发系统 ContentObserver，因为 SettingsProvider 会跳过未变化的值。
      *
-     * **注意**：本方法在 toggle 路径中含 Thread.sleep(300)，会阻塞主线程 300ms。
-     * 调用方均在主线程（WakeActivity 重试回调 / KeepAliveService 健康检测 Runnable），
-     * 闹钟触发场景无用户交互 UI，可安全使用；勿在交互路径调用。
+     * **注意**：本方法在 toggle 路径中含 Thread.sleep(300)，会阻塞调用线程 300ms。
+     * 所有调用方均已异步化（WakeActivity 伴生 bgScope / KeepAliveService serviceScope /
+     * MainActivity Dispatchers.IO），严禁在交互路径的主线程上直接调用。
      *
      * **语义说明**：若用户手动关闭了无障碍服务，本方法会重新将其打开。
      * 对专用打卡机符合需求；如需尊重用户手动禁用决定，调用前应先检查 instance 是否为 null。

@@ -21,7 +21,6 @@ import com.lark.autoclock.scheduler.ClockScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -34,8 +33,14 @@ class WakeActivity : Activity() {
     private var isReceiverRegistered = false
     private var delayedRetryCount = 0  // 当前延迟全量重试的次数 (0 = 首次触发)
     private var unconfirmedRetryCount = 0  // 极速打卡未确认时的重试次数 (0 = 首次触发)
-    // 绑定 Activity 生命周期的 IO 协程作用域，用于异步化文件操作
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    companion object {
+        // 与 Activity 生命周期解耦的后台作用域：打卡失败日志必须在 finish()/onDestroy()
+        // 之后仍能完成落盘。若用绑定生命周期的 scope，onDestroy 的 cancel() 会抢在
+        // IO 协程切入线程/等待文件锁之前取消它，导致关键的断连失败记录丢失。
+        // 同理承载含 Thread.sleep(300) 的无障碍自愈调用，避免阻塞主线程。
+        private val bgScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    }
 
     private val finishReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -132,8 +137,11 @@ class WakeActivity : Activity() {
         } else if (attempt < Constants.ACCESSIBILITY_RETRY_COUNT) {
             Log.w("WakeActivity", "无障碍服务未连接，尝试自动修复并进行第 ${attempt + 1}/${Constants.ACCESSIBILITY_RETRY_COUNT} 次重试...")
             
-            // 如果无障碍未连接，且已授权了 WRITE_SECURE_SETTINGS，尝试自动把它拉起来
-            com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(this)
+            // 如果无障碍未连接，且已授权了 WRITE_SECURE_SETTINGS，尝试自动把它拉起来。
+            // autoEnable 内含 Thread.sleep(300)，必须切到后台线程，避免阻塞主线程
+            bgScope.launch {
+                com.lark.autoclock.utils.AccessibilityAutoEnableUtil.autoEnableAccessibilityService(applicationContext)
+            }
 
             mainHandler.postDelayed({
                 tryStartClockInWithRetry(clockType, attempt + 1)
@@ -182,14 +190,16 @@ class WakeActivity : Activity() {
     }
 
     /**
-     * 将无障碍断连导致的打卡失败写入 clock_log.txt，与正常打卡日志格式一致
+     * 将无障碍断连导致的打卡失败写入 clock_log.txt，与正常打卡日志格式一致。
+     * 使用伴生对象的 bgScope（进程级生命周期）：调用方紧接着就会 releaseLocksAndFinish()
+     * → onDestroy，若 scope 随 Activity 销毁，日志协程会被取消导致关键失败记录丢失。
      */
     private fun recordAccessibilityFailure(clockType: String, extraNote: String = "无障碍服务未连接，打卡未执行") {
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         val logLine = "[$timeStr] [$clockType] ❌无障碍断连 - $extraNote\n"
 
-        ioScope.launch {
-            com.lark.autoclock.utils.LogUtil.appendLog(this@WakeActivity, logLine)
+        bgScope.launch {
+            com.lark.autoclock.utils.LogUtil.appendLog(applicationContext, logLine)
         }
     }
 
@@ -250,7 +260,7 @@ class WakeActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        ioScope.cancel() // 取消所有挂起的 IO 协程，防止 Activity 销毁后写入
+        // 注意：bgScope 位于伴生对象，不可在此 cancel——它承载的日志写入必须跨越 Activity 销毁完成落盘
         if (isReceiverRegistered) {
             try {
                 unregisterReceiver(finishReceiver)

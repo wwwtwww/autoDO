@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -179,17 +178,21 @@ object ClockScheduler {
         val pendingIntent = PendingIntent.getBroadcast(
             context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
-            val showPendingIntent = PendingIntent.getActivity(
-                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        }
+        dispatchAlarmClock(context, alarmManager, requestCode, triggerAt, pendingIntent)
+    }
+
+    /**
+     * 统一下发最高优先级闹钟（所有闹钟下发的唯一出口）。
+     * minSdk = 26，setAlarmClock（API 21+）恒可用，无需任何版本降级分支。
+     * setAlarmClock 属于系统级 AlarmClock 视图，具备最高级别的硬件闹钟唤醒优先级，
+     * 在 realme UI / ColorOS / MIUI 深度 Doze 休眠模式下能够强行穿透并唤醒设备。
+     */
+    private fun dispatchAlarmClock(context: Context, alarmManager: AlarmManager, requestCode: Int, triggerAt: Long, pendingIntent: PendingIntent) {
+        val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
+        val showPendingIntent = PendingIntent.getActivity(
+            context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
     }
 
     private fun formatTime(timeInMillis: Long): String =
@@ -422,17 +425,7 @@ object ClockScheduler {
 
         if (AlarmPermissionWarner.warnIfExactAlarmDenied(context, "scheduleDelayedClockInRetry")) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
-            val showPendingIntent = PendingIntent.getActivity(
-                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        }
+        dispatchAlarmClock(context, alarmManager, requestCode, triggerAt, pendingIntent)
         Log.d("AutoClock", "已调度延迟重试 #${nextRetryCount}/${Constants.DELAYED_RETRY_COUNT}: ${clockType}, " +
                 "将在 ${Constants.DELAYED_RETRY_INTERVAL_MS / 1000}s 后触发")
     }
@@ -477,17 +470,7 @@ object ClockScheduler {
 
         if (AlarmPermissionWarner.warnIfExactAlarmDenied(context, "scheduleUnconfirmedClockInRetry")) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
-            val showPendingIntent = PendingIntent.getActivity(
-                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        }
+        dispatchAlarmClock(context, alarmManager, requestCode, triggerAt, pendingIntent)
         Log.d("AutoClock", "已调度未确认自动重试 #${nextRetryCount}/${Constants.MAX_UNCONFIRMED_RETRY_COUNT}: ${clockType}, " +
                 "将在 ${Constants.UNCONFIRMED_RETRY_INTERVAL_MS / 1000}s 后触发")
     }
@@ -502,21 +485,7 @@ object ClockScheduler {
 
         if (AlarmPermissionWarner.warnIfExactAlarmDenied(context, "setExactAlarm")) return
 
-        // 使用 setAlarmClock 替代 setExactAndAllowWhileIdle！
-        // setAlarmClock 属于系统级 AlarmClock 视图，具备最高级别的硬件闹钟唤醒优先级，
-        // 在 realme UI / ColorOS / MIUI 深度 Doze 休眠模式下能够强行穿透并唤醒设备。
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val showIntent = Intent(context, com.lark.autoclock.MainActivity::class.java)
-            val showPendingIntent = PendingIntent.getActivity(
-                context, requestCode, showIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, showPendingIntent)
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-        }
+        dispatchAlarmClock(context, alarmManager, requestCode, timeInMillis, pendingIntent)
         Log.d("AutoClock", "已通过 setAlarmClock 成功下发高优先级闹钟: $clockType @ $timeInMillis")
         ScheduleLogger.log(context, "已下发${source}闹钟: $clockType @ ${formatTime(timeInMillis)}")
     }

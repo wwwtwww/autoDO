@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private val KEY_BATTERY_PROMPTED = "battery_prompted"
     private val KEY_LOCKSCREEN_PROMPTED = "lockscreen_prompted"
     private val KEY_FULL_SCREEN_PROMPTED = "full_screen_prompted"
+    private val KEY_OVERLAY_PROMPTED = "overlay_prompted"
+    private val KEY_ALARM_PROMPTED = "alarm_prompted"
     private val KEY_KEEPALIVE_ENABLED = ClockScheduler.KEY_KEEPALIVE_ENABLED
     private val KEY_AUTOSTART_CONFIGURED = "autostart_configured"
     private var pendingAutostartCheck = false
@@ -108,7 +110,11 @@ class MainActivity : AppCompatActivity() {
             }
             Toast.makeText(this, getString(R.string.toast_lock_screen_countdown), Toast.LENGTH_LONG).show()
 
-            val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java)
+            val intent = Intent(this, com.lark.autoclock.scheduler.ClockActionReceiver::class.java).apply {
+                // 显式注入类型与来源，让 ClockActionReceiver 的链路日志可追踪，避免输出「未知（来源: 未知）」
+                putExtra(Constants.EXTRA_CLOCK_TYPE, "测试")
+                putExtra(Constants.EXTRA_ALARM_SOURCE, "测试解锁按钮")
+            }
             val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             } else {
@@ -133,9 +139,7 @@ class MainActivity : AppCompatActivity() {
 
         // 3. 单独测试飞书打卡
         findViewById<Button>(R.id.btn_test_clock_in).setOnClickListener {
-            val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-            val serviceName = packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
-            if (enabledServices?.contains(serviceName) != true) {
+            if (!com.lark.autoclock.utils.AccessibilityAutoEnableUtil.isServiceEnabledInSettings(this)) {
                 Toast.makeText(this, getString(R.string.toast_test_no_accessibility), Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
@@ -469,6 +473,8 @@ class MainActivity : AppCompatActivity() {
             val hasPrompted = prefs.getBoolean(KEY_BATTERY_PROMPTED, false)
             val hasLockscreenPrompted = prefs.getBoolean(KEY_LOCKSCREEN_PROMPTED, false)
             val hasFullScreenPrompted = prefs.getBoolean(KEY_FULL_SCREEN_PROMPTED, false)
+            val hasOverlayPrompted = prefs.getBoolean(KEY_OVERLAY_PROMPTED, false)
+            val hasAlarmPrompted = prefs.getBoolean(KEY_ALARM_PROMPTED, false)
 
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             if (keyguardManager.isKeyguardSecure && !hasLockscreenPrompted) {
@@ -492,8 +498,12 @@ class MainActivity : AppCompatActivity() {
                 return // 串行处理：跳出，等用户返回再检查下一个
             }
             
-            // 检查悬浮窗权限（用于后台启动 Activity 唤醒屏幕）
-            if (!Settings.canDrawOverlays(this)) {
+            // 检查悬浮窗权限（用于后台启动 Activity 唤醒屏幕）。
+            // 必须有 prompted 标记：若用户在授权页点「返回」拒绝授权，无标记时 onResume
+            // 会立即再次拉起授权页，形成无法停留在主界面的死循环跳转。
+            // 拒绝后不再自动打扰，用户仍可通过权限列表行（layout_overlay）手动跳转。
+            if (!Settings.canDrawOverlays(this) && !hasOverlayPrompted) {
+                prefs.edit().putBoolean(KEY_OVERLAY_PROMPTED, true).apply()
                 Toast.makeText(this, getString(R.string.toast_overlay_permission), Toast.LENGTH_LONG).show()
                 val intent = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -503,10 +513,11 @@ class MainActivity : AppCompatActivity() {
                 return // 串行处理：跳出，等用户返回再检查下一个
             }
 
-            // 检查 Android 12+ 精确闹钟权限
+            // 检查 Android 12+ 精确闹钟权限（同理需要 prompted 标记防死循环，拒绝后可走 layout_alarm 行手动跳转）
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                if (!alarmManager.canScheduleExactAlarms()) {
+                if (!alarmManager.canScheduleExactAlarms() && !hasAlarmPrompted) {
+                    prefs.edit().putBoolean(KEY_ALARM_PROMPTED, true).apply()
                     Toast.makeText(this, getString(R.string.toast_exact_alarm_permission), Toast.LENGTH_LONG).show()
                     try {
                         val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -936,11 +947,8 @@ class MainActivity : AppCompatActivity() {
         return spannable
     }
 
-    private fun isAccessibilityServiceEnabled(context: Context): Boolean {
-        val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        val serviceName = context.packageName + "/" + com.lark.autoclock.service.AutoClockAccessibilityService::class.java.name
-        return enabledServices?.contains(serviceName) == true
-    }
+    private fun isAccessibilityServiceEnabled(context: Context): Boolean =
+        com.lark.autoclock.utils.AccessibilityAutoEnableUtil.isServiceEnabledInSettings(context)
 
     private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

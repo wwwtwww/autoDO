@@ -102,14 +102,8 @@ class ClockActionReceiver : BroadcastReceiver() {
 
         // ======== 第 3 层：best-effort 直接启动（Android 10+ / 部分 ROM 可能拦截，不能作为成功依据）========
         try {
-            val directIntent = Intent(context, WakeActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                putExtra(Constants.EXTRA_CHAIN_ACTION, Constants.ACTION_START_CLOCK_IN)
-                putExtra(Constants.EXTRA_CLOCK_TYPE, clockType)
-                putExtra(Constants.EXTRA_DELAYED_RETRY_COUNT, delayedRetryCount)
-                putExtra(Constants.EXTRA_UNCONFIRMED_RETRY_COUNT, unconfirmedRetryCount)
-            }
-            context.startActivity(directIntent)
+            // 复用上方 wakeIntent：内容与 Flags 和全屏通知完全一致，无需重复构造
+            context.startActivity(wakeIntent)
             Log.d("AutoClock", "已尝试直接启动 WakeActivity（best-effort，实际可能被系统拦截）")
         } catch (e: Exception) {
             Log.e("AutoClock", "直接启动 WakeActivity 被拦截或失败，仅依赖全屏通知路径: ${e.message}")
